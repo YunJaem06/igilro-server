@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/igilro}
+    username: ${DB_USERNAME:igilro}
+    password: ${DB_PASSWORD:igilro_local}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

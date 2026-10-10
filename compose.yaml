@@ -1,0 +1,26 @@
+name: igilro
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgis
+    image: igilro-postgis:local
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-igilro}
+      POSTGRES_USER: ${POSTGRES_USER:-igilro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-igilro_local}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
