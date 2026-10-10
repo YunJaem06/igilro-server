@@ -30,6 +30,14 @@ jobs:
         uses: gradle/actions/setup-gradle@b9bee63ef481cc545e4517ec730544a4d8b1dfa0 # v6.4.0
         with:
           cache-provider: basic
+      - name: Set up Python for offline data-preparation tests
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Verify PBF extraction with synthetic local fixtures
+        run: |
+          python -m pip install -r scripts/requirements-osm.txt
+          python -m unittest discover -s scripts/tests -v
       - name: Build PostgreSQL/PostGIS image
         run: docker compose build postgres
       - name: Unit, architecture, integration tests and bootJar
