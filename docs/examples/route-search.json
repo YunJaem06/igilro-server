@@ -1,0 +1,7 @@
+{
+  "origin": {"longitude": 127.0374, "latitude": 37.5445},
+  "destination": {"longitude": 127.0430, "latitude": 37.5480},
+  "travelMode": "walking",
+  "mode": "fastest",
+  "departureAt": "2026-10-10T14:00:00+09:00"
+}

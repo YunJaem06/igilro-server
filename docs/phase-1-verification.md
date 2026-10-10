@@ -2,6 +2,8 @@
 
 검증일: 2026-10-10 (Asia/Seoul). 이 문서는 Phase 1 로컬 실행 결과입니다. 원격 CI 결과는 [GitHub Actions](https://github.com/YunJaem06/igilro-server/actions)에서 확인합니다.
 
+Phase 1 시점의 기록이며 현재 경로 기능과 최신 검증은 [Phase 2 기록](phase-2-verification.md)을 참고합니다.
+
 Flutter 프로젝트 `docs/server_handoff.md`를 반영한 최종 검증입니다. 공통 오류를 `application/json`으로 변경했고, 장소·경로의 다음 단계 제안은 [전달 문서 검토](flutter-handoff-review.md)에 정리했습니다. 원격 push는 앞선 작업에서 HTTPS/SSH 인증이 없어 실패했으며, GitHub 호스팅 CI는 아직 실행 확인하지 못했습니다.
 
 ## 기존 프로젝트 분석

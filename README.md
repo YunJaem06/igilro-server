@@ -1,6 +1,6 @@
 # 이길로 서버
 
-사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1은 서버 실행 기반, PostgreSQL/PostGIS, 오류 응답, 상태 확인, API 문서와 테스트를 구축합니다. 경로 탐색과 그림자 계산은 다음 단계에서 구현합니다.
+사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 Phase 2의 실제 OSM 보행 그래프 적재·snapping·fastest 경로 API를 구현했습니다. 장소 검색과 그림자·환경 점수는 다음 단계입니다.
 
 ## 기술 구성
 
@@ -38,6 +38,7 @@ DB_USERNAME=igilro DB_PASSWORD=local_custom_password \
 
 | 확인 항목 | 주소 |
 | --- | --- |
+| 실제 도보 경로 검색 | `POST http://localhost:8080/api/v1/routes/search` |
 | 서비스 및 공간 DB 상태 | `GET http://localhost:8080/api/v1/health` |
 | 종합 상태 | `GET http://localhost:8080/actuator/health` |
 | 프로세스 생존 | `GET http://localhost:8080/actuator/health/liveness` |
@@ -67,6 +68,18 @@ curl -i http://localhost:8080/actuator/health/readiness
 Flutter `APP_ENV=development`는 서버 `local`, staging은 `dev`, production은 `prod`로 대응합니다. staging/production 앱에는 HTTPS origin이 필요하므로 해당 배포의 TLS reverse proxy 주소를 제공합니다. 서버 프로필만 바꾸는 것으로 HTTPS가 자동 활성화되지는 않습니다.
 
 오류도 `application/json`이며 최상위 `code`/`requestId`를 사용합니다. [최종 오류 형식과 코드 표](docs/api-contract.md), [장소·경로 계약 검토 및 데이터 확보 계획](docs/flutter-handoff-review.md)을 참고합니다.
+
+## 실제 경로 검색 (Phase 2)
+
+현재 개발 DB에는 서울숲 주변 실제 보행 그래프를 적재했습니다. 새 DB는 [데이터 준비·적재 절차](docs/phase-2-routing.md)를 먼저 실행합니다. 데이터가 없으면 경로 API는 HTTP 503 `ROUTING_DATA_UNAVAILABLE`입니다.
+
+```bash
+curl -i http://localhost:8080/api/v1/routes/search \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  --data-binary @docs/examples/route-search.json
+```
+
+검증 스냅샷의 위 요청은 약 800.8m·예상 573초의 실제 그래프 경로를 반환했습니다. 입력 위치와 경로 끝점 사이의 차이는 `snapping`으로 제공하며 미계산 환경 점수는 null입니다. 범위·시간 모델·후보 snapping·데이터 한계는 [Phase 2 실행/설계](docs/phase-2-routing.md), 측정 결과는 [검증 기록](docs/phase-2-verification.md)을 참고합니다.
 
 ## DB와 Flyway 확인
 
@@ -148,13 +161,15 @@ DB_USERNAME=igilro_app DB_PASSWORD=replace_with_secret \
 java -jar build/libs/igilro-server-0.0.1-SNAPSHOT.jar
 ```
 
-마이그레이션 계정에는 확장 생성 권한이 필요합니다. 운영 DB 관리자가 PostGIS를 미리 활성화하거나 `SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD`로 별도 마이그레이션 계정을 전달할 수 있습니다. 실제 운영 비밀은 저장소에 기록하지 않습니다. 기존 마이그레이션을 수정하지 않고 `V2__...sql`부터 추가하며, baseline과 Flyway clean은 자동 실행하지 않습니다.
+마이그레이션 계정에는 확장 생성 권한이 필요합니다. 운영 DB 관리자가 PostGIS를 미리 활성화하거나 `SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD`로 별도 마이그레이션 계정을 전달할 수 있습니다. 실제 운영 비밀은 저장소에 기록하지 않습니다. 기존 마이그레이션을 수정하지 않고 `V3__...sql`부터 추가하며, baseline과 Flyway clean은 자동 실행하지 않습니다.
 
 ## 설계와 후속 작업
 
 - [구조와 설계 근거](docs/architecture.md)
 - [현재 API 및 향후 Flutter 계약](docs/api-contract.md)
 - [Flutter 전달 문서 반영·계약 검토](docs/flutter-handoff-review.md)
+- [실제 보행 경로 실행·설계](docs/phase-2-routing.md)
+- [Phase 2 데이터·성능 검증](docs/phase-2-verification.md)
 - [초기 분석·변경 내역·검증 결과](docs/phase-1-verification.md)
 
-다음 단계는 보행 데이터 수집 및 그래프 저장, 경로 탐색, 환경 점수와 복수 조건 가중치, 건물·태양 위치 기반 그림자 계산입니다. 현재는 관련 엔티티·테이블·빈 API를 미리 생성하지 않습니다.
+다음 단계는 보행 데이터 품질 보완과 장소 검색, Flutter 실제 경로 연결, 건물·태양 위치 기반 그림자와 환경 점수, 복수 조건 가중치입니다. 미지원 기능의 빈 API나 샘플 성공 응답은 만들지 않습니다.

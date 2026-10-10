@@ -2,7 +2,7 @@
 
 ## Phase 1의 범위
 
-현재 동작하는 기능은 서비스 상태 확인입니다. 이를 실제 기능 단위의 예시로 사용하여 이후 경로·환경 기능을 추가할 때 같은 계층 규칙을 적용합니다. 경로 탐색, Mapbox 연동, 건물 데이터와 그림자 계산은 구현하지 않았습니다. Flutter가 Mapbox로 지도를 표시하고 서버가 데이터와 계산을 담당한다는 책임 분담을 유지합니다.
+Phase 1 완료 시점의 기능은 서비스 상태 확인이었습니다. 이를 실제 기능 단위의 예시로 사용하여 경로·환경 기능에 같은 계층 규칙을 적용합니다. 이후 Phase 2에서 실제 보행 경로 검색을 추가했습니다. Flutter가 Mapbox로 지도를 표시하고 서버가 데이터와 계산을 담당한다는 책임 분담을 유지합니다. 건물 데이터와 그림자 계산은 다음 단계입니다.
 
 ## Feature-first 구조
 
@@ -54,3 +54,10 @@ Docker init SQL과 Flyway가 같은 변경을 중복 관리하지 않도록 DB �
 OpenAPI의 오류 스키마는 API DTO의 annotation에서 생성하여 실제 응답과 별도 수동 스키마 사이의 불일치를 줄입니다. Infrastructure의 OpenAPI 설정은 API DTO를 직접 참조하지 않고 문서 정보만 설정합니다. 경로 업무 오류는 해당 Domain에 실제 역할이 생기는 다음 단계에 정의하고 API 계층에서 HTTP로 변환합니다.
 
 OpenAPI는 [Spring Boot 4 지원을 명시한 springdoc 3.x](https://springdoc.org/)를 사용합니다. local/dev에서 문서를 제공하고 prod에서는 비활성화합니다. prod의 Actuator는 별도 관리 포트에서 health만 공개합니다. 인증·인가, TLS, 배포 네트워크와 비밀 저장소는 아직 구성하지 않았으며 운영 배포 단계에서 결정합니다.
+
+
+## Phase 2 경로 기능
+
+route feature에 검색·적재 UseCase, 순수 Kotlin의 좌표·그래프·Dijkstra·후보 snapping, API DTO/Mapper/업무 오류 변환, OSM/JDBC adapter를 추가했습니다. Domain은 WKT나 HTTP, XML과 DB 형식을 알지 않습니다. 활성 snapshot metadata를 읽고 불변 그래프를 버전별로 캐시하며, 새 적재는 트랜잭션 안에서 활성 포인터를 교체합니다.
+
+공통 오류 responder를 공유하여 feature별 오류도 code/requestId/JSON/로그 계약을 유지합니다. 상세 설계는 [Phase 2 문서](phase-2-routing.md)를 참고합니다.
