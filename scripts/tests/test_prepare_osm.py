@@ -2,9 +2,11 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import osmium
@@ -63,6 +65,70 @@ class PrepareOsmTest(unittest.TestCase):
             directory = Path(directory)
             with self.assertRaises(ValueError):
                 self.extract(self.make_pbf(directory,False), directory / "out.osm")
+
+    def test_existing_metadata_is_preserved_even_without_an_xml_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            output = directory / "out.osm"
+            metadata = output.with_suffix(".osm.metadata.json")
+            metadata.write_text("existing audit record\n")
+            with self.assertRaises(FileExistsError):
+                self.extract(self.make_pbf(directory), output)
+            self.assertEqual("existing audit record\n", metadata.read_text())
+            self.assertFalse(output.exists())
+
+    def test_checksum_failure_does_not_publish_a_partial_extract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            file = self.make_pbf(directory)
+            output = directory / "out.osm"
+            original_open = Path.open
+
+            def fail_pbf_read(path, *args, **kwargs):
+                if path == file and args and args[0] == "rb":
+                    raise OSError("simulated checksum read failure")
+                return original_open(path, *args, **kwargs)
+
+            with patch.object(Path, "open", fail_pbf_read), self.assertRaises(OSError):
+                self.extract(file, output)
+            self.assertFalse(output.exists())
+            self.assertFalse(output.with_suffix(".osm.metadata.json").exists())
+
+    def test_metadata_write_failure_removes_this_runs_partial_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            file = self.make_pbf(directory)
+            output = directory / "out.osm"
+            metadata = output.with_suffix(".osm.metadata.json")
+            original_link = os.link
+
+            def fail_metadata_write(source, destination):
+                if destination == metadata:
+                    raise OSError("simulated metadata write failure")
+                return original_link(source, destination)
+
+            with patch.object(prepare.os, "link", fail_metadata_write), self.assertRaises(OSError):
+                self.extract(file, output)
+            self.assertFalse(output.exists())
+            self.assertFalse(metadata.exists())
+
+    def test_concurrent_output_creation_is_preserved_and_our_metadata_is_rolled_back(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            file = self.make_pbf(directory)
+            output = directory / "out.osm"
+            metadata = output.with_suffix(".osm.metadata.json")
+            original_link = os.link
+
+            def create_output_before_publish(source, destination):
+                if destination == output:
+                    output.write_text("created by another run\n")
+                return original_link(source, destination)
+
+            with patch.object(prepare.os, "link", create_output_before_publish), self.assertRaises(FileExistsError):
+                self.extract(file, output)
+            self.assertEqual("created by another run\n", output.read_text())
+            self.assertFalse(metadata.exists())
 
     def test_unbounded_or_invalid_bbox_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

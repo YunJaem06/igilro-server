@@ -6,7 +6,9 @@ This prepares input only. JVM ingestion owns foot permissions and graph construc
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import tempfile
 import xml.etree.ElementTree as ET
 
 import osmium
@@ -18,8 +20,10 @@ def extract(pbf, output, bbox, source):
         raise ValueError("Invalid WGS84 bbox")
     if east - west > 0.1 or north - south > 0.1:
         raise ValueError("Pilot bbox must be <= 0.1 degrees per axis")
-    if output.exists():
-        raise FileExistsError(f"Retaining existing extract: {output}. Choose a new output path.")
+    metadata_path = output.with_suffix(output.suffix + ".metadata.json")
+    for path in (output, metadata_path):
+        if path.exists() or path.is_symlink():
+            raise FileExistsError(f"Retaining existing extract file: {path}. Choose a new output path.")
     reader = osmium.io.Reader(str(pbf))
     timestamp = reader.header().get("osmosis_replication_timestamp")
     reader.close()
@@ -74,10 +78,6 @@ def extract(pbf, output, bbox, source):
     xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     if len(xml) > 20_000_000:
         raise ValueError("Extract exceeds 20 MB")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_suffix(output.suffix + ".tmp")
-    temporary.write_bytes(xml)
-    temporary.replace(output)
     metadata = {
         "source": source, "sourceTimestamp": timestamp, "bbox": bbox,
         "xmlSha256": hashlib.sha256(xml).hexdigest(),
@@ -88,7 +88,25 @@ def extract(pbf, output, bbox, source):
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
         metadata["pbfSha256"] = digest.hexdigest()
-    output.with_suffix(output.suffix + ".metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    metadata_json = json.dumps(metadata, indent=2) + "\n"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    # Stage complete files on the same filesystem. Hard links publish without replacing
+    # another run's files; the XML becomes visible only after its metadata is complete.
+    with tempfile.TemporaryDirectory(prefix=".igilro-extract-", dir=output.parent) as staging:
+        staged_xml = Path(staging) / "extract.osm"
+        staged_metadata = Path(staging) / "metadata.json"
+        staged_xml.write_bytes(xml)
+        staged_metadata.write_text(metadata_json, encoding="utf-8")
+        published = []
+        try:
+            os.link(staged_metadata, metadata_path)
+            published.append(metadata_path)
+            os.link(staged_xml, output)
+            published.append(output)
+        except OSError:
+            for path in reversed(published):
+                path.unlink()
+            raise
     print(json.dumps(metadata, indent=2), flush=True)
 
 
