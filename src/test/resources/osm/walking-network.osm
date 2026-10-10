@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic topology fixture, not production map data. -->
+<osm version="0.6" generator="igilro-test-fixture">
+  <meta osm_base="2026-10-01T00:00:00Z"/>
+  <node id="1" lon="127.030" lat="37.540"/>
+  <node id="2" lon="127.031" lat="37.540"/>
+  <node id="3" lon="127.032" lat="37.540"/>
+  <node id="4" lon="127.031" lat="37.541"/>
+  <node id="5" lon="127.033" lat="37.543"/>
+  <node id="6" lon="127.034" lat="37.543"/>
+  <node id="7" lon="127.0305" lat="37.5405"><tag k="access" v="private"/></node>
+  <node id="8" lon="127.035" lat="37.540"><tag k="barrier" v="wall"/></node>
+  <node id="9" lon="127.019" lat="37.540"/>
+  <way id="101"><nd ref="1"/><nd ref="2"/><nd ref="3"/><tag k="highway" v="footway"/></way>
+  <way id="102"><nd ref="2"/><nd ref="4"/><tag k="highway" v="steps"/></way>
+  <way id="103"><nd ref="5"/><nd ref="6"/><tag k="highway" v="footway"/></way>
+  <way id="104"><nd ref="1"/><nd ref="7"/><tag k="highway" v="service"/><tag k="foot" v="no"/></way>
+  <way id="105"><nd ref="1"/><nd ref="8"/><tag k="highway" v="footway"/></way>
+  <way id="106"><nd ref="9"/><nd ref="1"/><tag k="highway" v="footway"/></way>
+  <way id="107"><nd ref="1"/><nd ref="4"/><tag k="highway" v="residential"/><tag k="oneway" v="yes"/></way>
+</osm>

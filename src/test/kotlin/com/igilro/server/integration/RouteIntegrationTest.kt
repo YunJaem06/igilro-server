@@ -1,0 +1,160 @@
+package com.igilro.server.integration
+
+import com.igilro.server.route.application.ImportWalkingGraphUseCase
+import com.igilro.server.route.domain.*
+import com.igilro.server.route.infrastructure.osm.OsmGraphReader
+import org.junit.jupiter.api.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.test.annotation.DirtiesContext
+import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import org.testcontainers.junit.jupiter.*
+import org.testcontainers.postgresql.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
+import tools.jackson.databind.json.JsonMapper
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.UUID
+import kotlin.test.*
+
+@Tag("integration")
+@Testcontainers
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class RouteIntegrationTest {
+    @Autowired private lateinit var jdbc: JdbcTemplate
+    @Autowired private lateinit var importer: ImportWalkingGraphUseCase
+    @Autowired private lateinit var repository: WalkingGraphRepository
+    @Autowired private lateinit var mvc: MockMvc
+    @TempDir lateinit var directory: Path
+    private lateinit var graph: GraphImport
+    private val mapper = JsonMapper.builder().build()
+
+    @BeforeEach
+    fun prepare() {
+        jdbc.execute("DELETE FROM route_service_area")
+        val file = directory.resolve("fixture.osm")
+        javaClass.getResourceAsStream("/osm/walking-network.osm")!!.use { Files.copy(it, file) }
+        graph = OsmGraphReader().read(file, "test", "Test", Bounds(127.02,37.53,127.05,37.56), "synthetic-fixture")
+        importer.execute(graph)
+    }
+
+    private fun query(origin: String = "127.0302,37.54002", destination: String = "127.0318,37.54002", extra: String = ""): String {
+        val a = origin.split(',')
+        val b = destination.split(',')
+        return """{"origin":{"longitude":${a[0]},"latitude":${a[1]}},"destination":{"longitude":${b[0]},"latitude":${b[1]}}$extra}"""
+    }
+    private fun request(body: String) = post("/api/v1/routes/search").contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON).content(body)
+
+    @Test
+    fun `real DB route uses mid-edge geometry metric units UTC and null environmental scores`() {
+        val response = mvc.perform(request(query(extra = ",\"departureAt\":\"2026-10-10T14:00:00+09:00\"")))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.evaluatedAt").value("2026-10-10T05:00:00Z"))
+            .andExpect(jsonPath("$.dataVersion").value(graph.dataVersion))
+            .andExpect(jsonPath("$.routes[0].geometry.type").value("LineString"))
+            .andExpect(jsonPath("$.routes[0].additionalDurationSeconds").value(0))
+            .andExpect(jsonPath("$.routes[0].metrics.shadeRatio").value(org.hamcrest.Matchers.nullValue()))
+            .andReturn().response.contentAsString
+        val tree = mapper.readTree(response)
+        val route = tree["routes"][0]
+        val first = route["geometry"]["coordinates"][0]
+        assertEquals(127.0302, first[0].asDouble(), 1e-8)
+        assertEquals(37.54, first[1].asDouble(), 1e-8)
+        assertTrue(route["distanceMeters"].asDouble() in 140.0..145.0)
+        assertTrue(route["durationSeconds"].asLong() in 100..105)
+        assertTrue(tree["snapping"]["origin"]["distanceMeters"].asDouble() in 2.0..2.5)
+        assertEquals(route["durationSeconds"].asLong(), tree["baselineDurationSeconds"].asLong())
+        val measured = jdbc.queryForObject("SELECT ST_Length(ST_GeomFromGeoJSON(?)::geography)", Double::class.java, route["geometry"].toString())!!
+        assertEquals(measured, route["distanceMeters"].asDouble(), 0.11)
+    }
+
+    @Test
+    fun `business errors retain top-level code requestId and HTTP status`() {
+        val id = UUID.randomUUID().toString()
+        mvc.perform(request(query(destination = "127.051,37.54")).header("X-Request-Id", id))
+            .andExpect(status().`is`(422))
+            .andExpect(jsonPath("$.code").value("OUTSIDE_SUPPORTED_AREA"))
+            .andExpect(jsonPath("$.requestId").value(id))
+            .andExpect(header().string("X-Request-Id", id))
+        mvc.perform(request(query(destination = "127.034,37.543")))
+            .andExpect(status().isNotFound).andExpect(jsonPath("$.code").value("ROUTE_NOT_FOUND"))
+        mvc.perform(request(query(extra = ",\"mode\":\"shade\"")))
+            .andExpect(status().isBadRequest).andExpect(jsonPath("$.code").value("INVALID_ROUTE_QUERY"))
+        jdbc.execute("DELETE FROM route_service_area")
+        mvc.perform(request(query())).andExpect(status().isServiceUnavailable)
+            .andExpect(jsonPath("$.code").value("ROUTING_DATA_UNAVAILABLE"))
+    }
+
+    @Test
+    fun `malformed requests fail validation before graph search`() {
+        listOf(query(origin = "127.03,91"), query(extra = ",\"departureAt\":\"2026-10-10T14:00:00\""), "{}", "{bad-json", query(origin = "\"NaN\",37.54"), query(extra = ",\"conditions\":{\"shade\":1}")).forEach { body ->
+            mvc.perform(request(body)).andExpect(status().isBadRequest)
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+        }
+    }
+
+    @Test
+    fun `import is idempotent and invalid replacement does not remove active data`() {
+        val before = jdbc.queryForObject("SELECT count(*) FROM route_node WHERE dataset_id=?", Int::class.java, graph.dataVersion)
+        assertTrue(importer.execute(graph).reused)
+        assertEquals(before, jdbc.queryForObject("SELECT count(*) FROM route_node WHERE dataset_id=?", Int::class.java, graph.dataVersion))
+        assertFailsWith<IllegalArgumentException> { importer.execute(graph.copy(edges = emptyList())) }
+        assertEquals(graph.dataVersion, repository.findActiveGraphs().single().dataVersion)
+    }
+
+    @Test
+    fun `SQL failure rolls back a new dataset and leaves the prior active graph usable`() {
+        val replacement = graph.copy(dataVersion = "osm-v1-" + "a".repeat(64), edges = graph.edges.mapIndexed { index, edge -> if (index == 0) edge.copy(kind = EdgeKind.WALKWAY, wayId = 0) else edge })
+        // Bypass the application validation to exercise the database transaction itself.
+        val writer = org.springframework.jdbc.datasource.DataSourceTransactionManager(jdbc.dataSource!!)
+        val direct = com.igilro.server.route.infrastructure.JdbcGraphImportRepository(jdbc, writer)
+        // A negative node ID violates the SQL CHECK after the dataset insert has executed.
+        val invalid = replacement.copy(nodes = replacement.nodes + (-10L to Coordinate(127.03,37.54)))
+        assertFails { direct.save(invalid) }
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM route_dataset WHERE id=?", Int::class.java, replacement.dataVersion))
+        assertEquals(graph.dataVersion, repository.findActiveGraphs().single().dataVersion)
+    }
+
+    @Test
+    fun `activation of another immutable snapshot refreshes cached graph`() {
+        val second = graph.copy(dataVersion = "osm-v1-" + "b".repeat(64))
+        repository.findActiveGraphs()
+        importer.execute(second)
+        assertEquals(second.dataVersion, repository.findActiveGraphs().single().dataVersion)
+    }
+
+    @Test
+    fun `OpenAPI describes the route endpoint and business errors`() {
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk)
+            .andExpect(jsonPath("$.paths['/api/v1/routes/search'].post.operationId").value("searchWalkingRoute"))
+            .andExpect(jsonPath("$.paths['/api/v1/routes/search'].post.responses['422']").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/routes/search'].post.responses['503']").exists())
+            .andExpect(jsonPath("$.components.schemas.RouteSearchRequest.required").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("mode"))))
+            .andExpect(jsonPath("$.components.schemas.RouteSearchResponse.required").value(org.hamcrest.Matchers.hasItems("routes", "evaluatedAt", "dataVersion")))
+    }
+
+    companion object {
+        @Container @JvmField
+        val postgres = PostgreSQLContainer(DockerImageName.parse(System.getenv("POSTGIS_TEST_IMAGE") ?: "igilro-postgis:local").asCompatibleSubstituteFor("postgres"))
+        @DynamicPropertySource @JvmStatic
+        fun databaseProperties(registry: DynamicPropertyRegistry) {
+            registry.add("spring.datasource.url", postgres::getJdbcUrl)
+            registry.add("spring.datasource.username", postgres::getUsername)
+            registry.add("spring.datasource.password", postgres::getPassword)
+        }
+    }
+}
