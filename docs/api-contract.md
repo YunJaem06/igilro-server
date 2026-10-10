@@ -1,13 +1,14 @@
 # API 계약
 
-## 현재 제공하는 API
+## 기본 연결 규칙
 
-`GET /api/v1/health`
+Flutter의 `API_BASE_URL`에는 origin만 넣습니다. 기본 서버 origin은 `http://localhost:8080`이며 `/api/v1`은 각 endpoint 경로에 포함합니다. 요청과 일반 API 응답은 JSON이며 `Accept: application/json`, 본문이 있는 요청은 `Content-Type: application/json`을 사용합니다.
 
-| 상태 | HTTP | 의미 |
-| --- | --- | --- |
-| `UP` | 200 | PostgreSQL 연결과 PostGIS 공간 함수 호출 성공 |
-| `DOWN` | 503 | 공간 DB 사용 불가 |
+현재 앱용 endpoint는 `GET /api/v1/health` 하나입니다. 장소·경로 API는 [Flutter 전달 문서 검토](flutter-handoff-review.md)의 다음 단계 제안입니다.
+
+## 상태 확인
+
+`GET /api/v1/health`는 PostgreSQL 연결과 PostGIS 공간 함수 호출에 성공하면 HTTP 200을 반환합니다.
 
 ```json
 {
@@ -16,73 +17,69 @@
 }
 ```
 
-`checkedAt`은 검사가 끝난 시각이며 서버의 UTC 시계 기준 RFC 3339 문자열입니다. 요청과 응답의 `X-Request-Id`는 UUID입니다. DOWN도 같은 DTO를 사용합니다.
+`checkedAt`은 검사가 끝난 UTC 시각입니다. 공간 DB를 사용할 수 없으면 HTTP 503과 아래 공통 오류의 `SERVICE_UNAVAILABLE`을 반환합니다. 성공 응답에 업무 오류를 넣지 않습니다.
 
-## 공통 오류 응답
+`GET /actuator/health`와 `/actuator/health/readiness`, `/actuator/health/liveness`는 Spring Boot의 표준 응답을 유지합니다. 예를 들어 종합 상태는 `{"status":"UP"}`이며 DB 장애 시 `{"status":"DOWN"}`과 HTTP 503입니다. liveness는 DB 장애에도 프로세스의 생존 여부만 검사합니다. prod의 Actuator는 별도 관리 포트 8081에서 제공됩니다.
 
-Spring MVC 요청 처리 오류는 `Content-Type: application/problem+json`으로 응답합니다.
+## 최종 공통 오류 형식
+
+Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type: application/json`으로 응답합니다. 최상위 `code`와 `requestId`는 필수입니다.
 
 ```json
 {
-  "type": "urn:igilro:error:invalid-request",
-  "title": "Bad Request",
-  "status": 400,
-  "detail": "요청 형식 또는 입력값이 올바르지 않습니다.",
-  "instance": "/api/v1/example",
   "code": "INVALID_REQUEST",
-  "timestamp": "2026-10-10T03:00:00Z",
+  "message": "요청 형식 또는 입력값이 올바르지 않습니다.",
   "requestId": "cebb12d6-8717-42a6-bb4d-347d6aeb9627",
+  "timestamp": "2026-10-10T03:00:00Z",
   "errors": [{"field": "name", "message": "must not be blank"}]
 }
 ```
 
-`/api/v1/example`은 형식 설명용이며 구현된 API가 아닙니다. `errors`는 필드·파라미터 검증 오류 목록으로, 오류가 없으면 빈 배열입니다. 검증 메시지는 Validator 설정에 따라 달라질 수 있으므로 Flutter의 분기는 `code`와 `status`를 사용합니다. `instance`는 쿼리 문자열을 제외한 요청 경로입니다.
+서버는 진단용 `message`를 제공하지만 Flutter는 화면 문구를 HTTP 상태와 `code`로 결정합니다. `errors`는 입력 검증 상세이며 검증 오류가 없으면 빈 배열입니다. 입력값, 쿼리 문자열, 스택 트레이스는 포함하지 않습니다. `timestamp`는 UTC RFC 3339 문자열입니다.
 
-| HTTP | code |
-| --- | --- |
-| 400 | `INVALID_REQUEST` |
-| 404 | `NOT_FOUND` |
-| 405 | `METHOD_NOT_ALLOWED` |
-| 406 | `NOT_ACCEPTABLE` |
-| 415 | `UNSUPPORTED_MEDIA_TYPE` |
-| 500 및 기타 처리된 5xx | `INTERNAL_SERVER_ERROR` |
+`requestId`는 UUID이며 `X-Request-Id` 응답 헤더와 서버 로그의 MDC 값이 일치합니다. 클라이언트가 요청 헤더에 유효한 UUID를 전달하면 이를 유지하고, 누락되거나 유효하지 않으면 서버에서 생성합니다.
 
-상태 API의 정상적인 DOWN 응답은 위 오류 형식 대신 `HealthResponse`와 HTTP 503을 사용합니다. Actuator는 Spring Boot 표준 상태 형식을 사용합니다. 향후 도메인 오류가 생기면 Domain 오류와 HTTP 매핑을 분리하여 오류 코드를 추가합니다.
+| HTTP | 현재 공통 code | 의미 |
+| --- | --- | --- |
+| 400 | `INVALID_REQUEST` | JSON 형식·필수 입력·타입·검증 오류 |
+| 404 | `NOT_FOUND` | 구현된 리소스나 endpoint를 찾을 수 없음 |
+| 405 | `METHOD_NOT_ALLOWED` | 지원하지 않는 HTTP 메서드; Allow 헤더 유지 |
+| 406 | `NOT_ACCEPTABLE` | 지원하지 않는 응답 형식 |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | 지원하지 않는 본문 형식 |
+| 429 | `TOO_MANY_REQUESTS` | HTTP 429에 대한 공통 매핑. 실제 요청 제한 기능은 미구현 |
+| 500 | `INTERNAL_SERVER_ERROR` | 예상하지 못한 서버 오류 |
+| 503 | `SERVICE_UNAVAILABLE` | 현재 상태 API에서 공간 DB 사용 불가 |
 
-## 향후 Flutter 경로 계약의 기준
+그 밖의 처리된 5xx는 `INTERNAL_SERVER_ERROR`, 명시적인 매핑이 없는 4xx는 `INVALID_REQUEST`를 사용하며 HTTP 상태는 유지합니다. 인증 도입 시 401/403 코드와 필터 계층의 JSON 처리를 별도로 추가합니다. Actuator와 서블릿 컨테이너가 MVC 진입 전에 거부한 요청은 각각 해당 계층의 기본 오류 형식을 사용합니다.
 
-이 항목은 다음 단계의 설계 기준입니다. 현재 경로 API·DTO·엔티티·계산은 구현하지 않았으며 경로 요청 형식, 메서드와 URI는 이후 확정합니다.
+## 다음 단계의 장소·경로 업무 코드
+
+Flutter의 아래 업무 코드·HTTP 제안은 설계 기준으로 수용합니다. 현재 해당 API와 도메인 오류는 구현하지 않았습니다.
+
+| HTTP | 다음 단계 code | 적용 범위 |
+| --- | --- | --- |
+| 400 | `INVALID_ROUTE_QUERY` | 파싱·일반 검증을 통과했지만 경로 조건이 유효하지 않음 |
+| 422 | `OUTSIDE_SUPPORTED_AREA` | 유효한 좌표가 확정된 서비스 지역 밖 |
+| 404 | `ROUTE_NOT_FOUND` | 사용 가능한 데이터와 지역 안에서 연결 가능한 보행 경로 없음 |
+| 429 | `TOO_MANY_REQUESTS` | 요청 제한 도입 시 적용, 재시도 가능 시 Retry-After 제공 |
+| 503 | `ROUTING_DATA_UNAVAILABLE` | 경로 그래프·필수 경로 데이터 준비되지 않음 |
+
+현재 미구현 경로 URL의 404 `NOT_FOUND`는 미래의 `ROUTE_NOT_FOUND`와 다릅니다. 검색 결과가 없는 장소 검색은 업무 성공인 HTTP 200과 `places: []`를 사용합니다.
+
+## 향후 좌표·단위·시각 규칙
 
 | 항목 | 기준 |
 | --- | --- |
-| 지도 좌표 | RFC 7946 GeoJSON, WGS 84/SRID 4326 |
-| 좌표 배열 | `[longitude, latitude]`, 즉 `[경도, 위도]` |
-| 범위 | 경도 -180..180, 위도 -90..90, 유한 숫자 |
-| 경로 형상 | GeoJSON `Feature`의 `LineString`, 최소 두 좌표 |
-| 거리 | `distanceMeters`, 미터(m), 0 이상의 숫자 |
-| 예상 소요 시간 | `durationSeconds`, 초(s), 0 이상의 숫자 |
-| 평가 기준 시각 | `evaluatedAt`, 모든 환경 점수 계산에 적용한 하나의 순간 |
-| 입력 시각 | RFC 3339, UTC `Z` 또는 오프셋 필수; 오프셋 없는 로컬 날짜·시간은 거부 |
-| 응답 시각 | UTC `Z`로 정규화; 생성 시각과 환경 평가 시각을 혼동하지 않음 |
+| 좌표 | WGS 84/SRID 4326, 유한 숫자, 경도 -180..180 / 위도 -90..90 |
+| 입력 좌표 | `{longitude, latitude}` 객체 |
+| 응답 경로 | `routes[].geometry`에 GeoJSON `LineString` geometry 직접 제공 |
+| GeoJSON 배열 | `[longitude, latitude]`, 최소 두 좌표; 별도 Feature 래퍼 불필요 |
+| 거리 | `distanceMeters`, 미터(m), 0 이상의 유한 숫자 |
+| 소요·추가 시간 | `durationSeconds`, `additionalDurationSeconds`, 초(s); 정수 처리 기준은 다음 단계 확정 |
+| 입력 시각 | `departureAt`, RFC 3339, `Z` 또는 오프셋 필수 |
+| 평가 시각 | `evaluatedAt`, 실제 적용한 출발·환경 평가 기준 시각, UTC `Z`로 응답 |
+| 점수 | 값이 있으면 0..1, 미계산·자료 없음은 null; metric별 coverage와 산출 방식 명시 |
 
-다음은 형식을 설명하기 위한 가상 응답입니다. 실제 거리·시간·추천 결과가 아닙니다.
+`evaluatedAt`은 응답 생성 시각이 아닙니다. `departureAt`이 주어지면 같은 순간을 UTC로 정규화합니다. 생략 시 서버가 선택한 기준 시각을 응답에 명시하는 방안을 제안합니다. 향후 이동 중 구간별 시각을 사용하는 모델은 이 출발 기준과 별도 계약으로 확장합니다.
 
-```json
-{
-  "route": {
-    "type": "Feature",
-    "geometry": {
-      "type": "LineString",
-      "coordinates": [[126.9780, 37.5665], [126.9790, 37.5665]]
-    },
-    "properties": {}
-  },
-  "distanceMeters": 88.3,
-  "durationSeconds": 70,
-  "evaluatedAt": "2026-10-10T06:00:00Z"
-}
-```
-
-길 모드는 빠른 길, 그늘, 햇빛, 러닝, 조용함, 밝기, 비 회피를 고려합니다. 구체적인 enum 코드와 복수 조건·가중치의 요청 구조는 Phase 2 이후 클라이언트와 함께 확정합니다. 환경 평가는 하나의 `evaluatedAt`을 공유하고 기본 시각을 선택한 경우에도 실제 사용한 시각을 반드시 응답합니다. UTC 순간을 기준으로 태양 위치를 구하고, 필요한 지역 시간대는 좌표와 명시적인 규칙으로 해석합니다.
-
-GeoJSON 좌표 단위는 도(degree)입니다. 거리를 계산할 때는 `geography` 또는 미터 단위의 적절한 투영 좌표계를 사용하며 SRID 4326 geometry의 길이를 그대로 미터로 응답하지 않습니다. 그림자 Polygon과 건물 높이, 보행 구간의 교차 길이도 일관된 미터 단위 좌표계에서 계산합니다. 이후 그늘 비율은 겹치는 그림자 영역을 합집합 처리한 뒤 `그늘과 겹치는 보행 길이 / 전체 보행 길이`로 평가하고, 높이 누락·데이터 품질·시간에 따른 경계 조건을 별도로 정의합니다.
+GeoJSON 좌표는 도(degree) 단위이므로 미터 거리 계산에는 `geography` 또는 적절한 투영 좌표계를 사용합니다. 그림자와 보행 구간의 교차 길이도 일관된 미터 단위 좌표계에서 계산합니다. 그늘 비율은 그림자 영역을 합집합 처리한 뒤 `그늘과 겹치는 보행 길이 / 전체 보행 길이`로 평가하며 높이 누락과 자료 품질을 함께 기록합니다.

@@ -49,6 +49,8 @@ Docker init SQL과 Flyway가 같은 변경을 중복 관리하지 않도록 DB �
 
 상태 API와 Actuator의 `postgis` 지표는 같은 Repository 계약을 사용합니다. readiness는 `readinessState`, `db`, `postgis`를 검사하고 liveness는 프로세스 상태를 검사합니다. 상태 상세, DB 버전·접속 정보는 외부 응답에 포함하지 않습니다.
 
-공통 오류는 Spring `ProblemDetail` 기반 RFC 9457 형태입니다. MVC의 입력 검증, JSON 파싱, 404, 405, 406, 415와 예상하지 못한 예외를 처리합니다. 요청마다 UUID `X-Request-Id`를 응답하고 MDC 로그와 오류 본문에 연결합니다. 클라이언트가 보낸 유효한 UUID는 유지하고 다른 값은 새 UUID로 교체합니다. 잘못된 입력값·쿼리 문자열·스택 트레이스를 오류 본문에 포함하지 않습니다.
+공통 오류는 Flutter 전달 계약에 맞춘 `ApiErrorResponse`와 `application/json`입니다. 최상위 `code`, `message`, `requestId`와 진단용 `timestamp`, `errors`를 제공합니다. MVC의 입력 검증, JSON 파싱, 404, 405, 406, 415, HTTP 429/503과 예상하지 못한 예외를 처리합니다. 앱용 health 장애도 공통 오류를 사용하고 Actuator는 표준 응답을 유지합니다. 요청마다 UUID `X-Request-Id`를 응답하고 MDC 로그와 오류 본문에 연결합니다. 클라이언트가 보낸 유효한 UUID는 유지하고 다른 값은 새 UUID로 교체합니다. 잘못된 입력값·쿼리 문자열·스택 트레이스를 오류 본문에 포함하지 않습니다.
+
+OpenAPI의 오류 스키마는 API DTO의 annotation에서 생성하여 실제 응답과 별도 수동 스키마 사이의 불일치를 줄입니다. Infrastructure의 OpenAPI 설정은 API DTO를 직접 참조하지 않고 문서 정보만 설정합니다. 경로 업무 오류는 해당 Domain에 실제 역할이 생기는 다음 단계에 정의하고 API 계층에서 HTTP로 변환합니다.
 
 OpenAPI는 [Spring Boot 4 지원을 명시한 springdoc 3.x](https://springdoc.org/)를 사용합니다. local/dev에서 문서를 제공하고 prod에서는 비활성화합니다. prod의 Actuator는 별도 관리 포트에서 health만 공개합니다. 인증·인가, TLS, 배포 네트워크와 비밀 저장소는 아직 구성하지 않았으며 운영 배포 단계에서 결정합니다.

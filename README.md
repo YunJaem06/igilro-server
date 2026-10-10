@@ -50,7 +50,23 @@ curl -i http://localhost:8080/api/v1/health
 curl -i http://localhost:8080/actuator/health/readiness
 ```
 
-정상 상태는 HTTP 200과 `{"status":"UP","checkedAt":"...Z"}`입니다. DB 연결 또는 공간 함수 호출에 실패하면 상태 API와 readiness가 HTTP 503을 반환합니다. liveness는 DB 장애로 프로세스를 반복 재시작하지 않도록 DB를 검사하지 않습니다.
+정상 상태는 HTTP 200과 `{"status":"UP","checkedAt":"...Z"}`입니다. DB 연결 또는 공간 함수 호출에 실패하면 앱용 상태 API는 HTTP 503과 공통 JSON 오류 `SERVICE_UNAVAILABLE`을 반환합니다. Actuator health/readiness는 HTTP 503과 표준 `{"status":"DOWN"}`을 유지합니다. liveness는 DB 장애로 프로세스를 반복 재시작하지 않도록 DB를 검사하지 않습니다.
+
+## Flutter 연결 주소
+
+`API_BASE_URL`에는 `/api/v1` 없이 서버 origin만 지정합니다.
+
+| 실행 환경 | API_BASE_URL |
+| --- | --- |
+| Mac / iOS Simulator | `http://localhost:8080` |
+| Android Emulator | `http://10.0.2.2:8080` |
+| 실제 기기 | 같은 네트워크의 `http://<Mac LAN IP>:8080` |
+
+로컬 서버는 기본적으로 모든 인터페이스에서 API 포트를 수신합니다. 실제 기기 연결 시 Mac의 LAN IP는 `ipconfig getifaddr en0` 등으로 확인합니다. 기기 통신과 앱의 로컬 HTTP 설정 검증은 Flutter API 연결 단계에서 수행합니다. native 앱 연결에 웹 CORS 설정은 필요하지 않으며 웹 지원은 별도 작업입니다.
+
+Flutter `APP_ENV=development`는 서버 `local`, staging은 `dev`, production은 `prod`로 대응합니다. staging/production 앱에는 HTTPS origin이 필요하므로 해당 배포의 TLS reverse proxy 주소를 제공합니다. 서버 프로필만 바꾸는 것으로 HTTPS가 자동 활성화되지는 않습니다.
+
+오류도 `application/json`이며 최상위 `code`/`requestId`를 사용합니다. [최종 오류 형식과 코드 표](docs/api-contract.md), [장소·경로 계약 검토 및 데이터 확보 계획](docs/flutter-handoff-review.md)을 참고합니다.
 
 ## DB와 Flyway 확인
 
@@ -138,6 +154,7 @@ java -jar build/libs/igilro-server-0.0.1-SNAPSHOT.jar
 
 - [구조와 설계 근거](docs/architecture.md)
 - [현재 API 및 향후 Flutter 계약](docs/api-contract.md)
+- [Flutter 전달 문서 반영·계약 검토](docs/flutter-handoff-review.md)
 - [초기 분석·변경 내역·검증 결과](docs/phase-1-verification.md)
 
 다음 단계는 보행 데이터 수집 및 그래프 저장, 경로 탐색, 환경 점수와 복수 조건 가중치, 건물·태양 위치 기반 그림자 계산입니다. 현재는 관련 엔티티·테이블·빈 API를 미리 생성하지 않습니다.
