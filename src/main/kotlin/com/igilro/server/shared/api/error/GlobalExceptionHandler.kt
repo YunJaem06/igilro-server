@@ -1,11 +1,9 @@
 package com.igilro.server.shared.api.error
 
-import com.igilro.server.shared.api.RequestIdFilter
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
-import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -15,11 +13,14 @@ import org.springframework.web.context.request.WebRequest
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import java.time.Clock
-import java.util.UUID
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 class GlobalExceptionHandler(private val clock: Clock) : ResponseEntityExceptionHandler() {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val responder = ApiErrorResponder(clock)
 
     override fun handleExceptionInternal(
         ex: Exception,
@@ -70,14 +71,6 @@ class GlobalExceptionHandler(private val clock: Clock) : ResponseEntityException
                 "INVALID_REQUEST" to "요청을 처리할 수 없습니다."
             }
         }
-        val requestId = request.getAttribute(RequestIdFilter.ATTRIBUTE, WebRequest.SCOPE_REQUEST) as? String
-            ?: UUID.randomUUID().toString()
-        log.warn("API 오류 응답: status={}, code={}, requestId={}", status.value(), code, requestId)
-        val response = ApiErrorResponse(code, message, requestId, clock.instant(), violations)
-        val responseHeaders = HttpHeaders()
-        responseHeaders.putAll(headers)
-        responseHeaders.contentType = MediaType.APPLICATION_JSON
-        responseHeaders.set(RequestIdFilter.HEADER, requestId)
-        return ResponseEntity(response, responseHeaders, status)
+        return responder.respond(status, code, message, request, headers, violations)
     }
 }

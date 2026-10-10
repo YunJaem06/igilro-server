@@ -7,5 +7,6 @@ import org.springframework.boot.runApplication
 class IgilroServerApplication
 
 fun main(args: Array<String>) {
-    runApplication<IgilroServerApplication>(*args)
+    val context = runApplication<IgilroServerApplication>(*args)
+    if (context.environment.containsProperty("igilro.graph-import.file")) context.close()
 }

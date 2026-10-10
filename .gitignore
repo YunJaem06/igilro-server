@@ -45,3 +45,6 @@ out/
 !.env.example
 *.log
 .DS_Store
+/data/
+/.venv-data/
+__pycache__/

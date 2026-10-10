@@ -37,9 +37,9 @@ class ServerIntegrationTest {
 
     @Test
     fun `Flyway enables PostGIS and is safe to run again`() {
-        assertEquals("1", flyway.info().current().version.version)
+        assertEquals("2", flyway.info().current().version.version)
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM pg_extension WHERE extname = 'postgis'", Int::class.java))
-        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Int::class.java))
+        assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Int::class.java))
         flyway.validate()
         assertEquals(0, flyway.migrate().migrationsExecuted)
     }
@@ -70,8 +70,9 @@ class ServerIntegrationTest {
     }
 
     @Test
-    fun `missing spatial extension makes readiness DOWN while liveness stays UP`() {
-        jdbc.execute("DROP EXTENSION postgis")
+    fun `broken spatial function makes readiness DOWN while liveness stays UP`() {
+        val original = jdbc.queryForObject("SELECT pg_get_functiondef('st_srid(geometry)'::regprocedure)", String::class.java)!!
+        jdbc.execute("CREATE OR REPLACE FUNCTION public.st_srid(geom geometry) RETURNS integer LANGUAGE SQL IMMUTABLE STRICT AS 'SELECT 0'")
         try {
             mvc.perform(get("/api/v1/health")).andExpect(status().isServiceUnavailable)
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
@@ -83,7 +84,7 @@ class ServerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("DOWN"))
             mvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk)
         } finally {
-            jdbc.execute("CREATE EXTENSION postgis")
+            jdbc.execute(original)
         }
     }
 

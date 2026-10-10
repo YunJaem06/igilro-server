@@ -19,6 +19,9 @@ spring:
   jdbc:
     template:
       query-timeout: 3s
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
 
 server:
   port: ${SERVER_PORT:8080}
