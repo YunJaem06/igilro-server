@@ -38,7 +38,7 @@ health 200/UP과 `/v3/api-docs`의 route endpoint, 400/404/422/503 오류, 필�
 
 ## 자동 검증
 
-`./gradlew clean build --no-daemon --warning-mode all`과 최종 경계 조건 보완 후 전체 build가 성공했습니다. JVM 테스트 63개(단위·아키텍처 50 / API·DB 통합 13), Python 데이터 준비 테스트 4개로 총 **67개 성공 / 실패 0 / 건너뜀 0**입니다.
+최초 구현 검증에서 `./gradlew clean build --no-daemon --warning-mode all`이 성공했습니다. 당시 JVM 테스트 63개(단위·아키텍처 50 / API·DB 통합 13), Python 데이터 준비 테스트 4개로 총 67개가 통과했습니다. 아래 재점검에서 회귀 테스트를 추가한 최종 결과는 **75개 성공 / 실패 0 / 건너뜀 0**입니다.
 
 JVM 단위·아키텍처·API/DB 테스트와 Python 데이터 준비 테스트를 검증합니다. 범위는:
 
@@ -51,3 +51,23 @@ JVM 단위·아키텍처·API/DB 테스트와 Python 데이터 준비 테스트�
 CI는 Java 21 및 Python 3.12에서 같은 검증을 실행합니다. 경로 탐색과 CI는 외부 OSM API 가용성에 의존하지 않습니다.
 
 실제 DB 중지 시 캐시가 존재해도 경로 API는 503 ROUTING_DATA_UNAVAILABLE과 JSON code/requestId를 반환했습니다. DB 복구 후 서버 재시작 없이 경로 검색 200으로 돌아왔습니다. 검증용 서버는 종료하고 개발 DB와 적재 데이터를 유지했습니다.
+
+## 추가 재점검: 2026-10-10
+
+코드·Flutter 전달 문서·실제 데이터 결과를 다시 대조하고, 먼저 실패하는 회귀 테스트로 문제를 재현한 뒤 수정했습니다.
+
+| 발견한 문제 | 수정 및 검증 |
+| --- | --- |
+| 같은 고립 노드의 구간 끝점 8개가 후보를 모두 차지해 주변 연결 경로를 놓침 | 동일 노드 후보를 제한 전에 제거. 8개 고립 구간과 인근 연결 구간을 구성한 테스트 통과 |
+| 같은 버전의 다른 내용을 재적재해도 기존 데이터를 조용히 재사용 | 출처·시각·체크섬·지역·노드·구간을 검증하고 충돌 거부. 기존 활성 데이터 보존 확인 |
+| 버전은 같고 서비스 영역 metadata가 바뀌면 캐시에 이전 범위가 남음 | 전체 활성 metadata로 캐시 키 구성. 범위 변경 반영 확인 |
+| SQL 제약을 통과한 잘못된 좌표가 그래프 구성에서 500을 유발 | 저장된 그래프 불변식 위반을 503으로 변환. 좌표 복구 후 재시작 없이 200, body/header requestId 일치 확인 |
+| PBF 체크섬·metadata 저장 실패 후 XML만 남거나 기존 metadata를 덮어씀 | 완성 후 공개, 기존 파일·동시 생성 파일 보존, 실패 시 생성 파일 정리 테스트 통과 |
+
+`./gradlew clean build --no-daemon --console=plain --warning-mode all`: 단위·아키텍처 51개, PostgreSQL/PostGIS 통합 16개가 통과했습니다. Python 합성 PBF 테스트 8개도 통과해 총 75개입니다. 새 마이그레이션은 없으며 Flyway V1/V2 검증이 정상입니다.
+
+기존 실제 스냅샷의 노드 5,733개·구간 6,268개를 재적재하여 `reused=true`를 확인했습니다. `/api/v1/health`, Actuator health/readiness는 200/UP, OpenAPI JSON은 200이었습니다. 실제 HTTP 400·422에서도 기존 code/requestId 계약을 확인했습니다.
+
+최종 모델 버전은 `dijkstra-v2-distinct8-snap50-direct5km`입니다. 기존 4개 경로 요청을 각 25회 재검증하여 **100/100 성공**, 거리·예상 시간·좌표 수가 이전 결과와 같았습니다. 8개 worker의 동시 요청 32회도 **32/32 성공**했습니다. 순차 측정의 요청별 warm p95는 각각 44.23ms / 10.08ms / 12.76ms / 8.19ms였습니다. 로컬 회귀 확인 수치이며 운영 SLO 측정은 아닙니다. 원시 결과는 Git에서 제외된 `data/osm/review-route-benchmark.json`에 있습니다.
+
+검증용 API 서버는 종료했습니다. 개발 DB와 실제 데이터는 유지했습니다. 장소 검색·Flutter 실제 연동, relation/운영시간 등 데이터 품질 개선, 환경 점수·그림자는 후속 작업입니다.
