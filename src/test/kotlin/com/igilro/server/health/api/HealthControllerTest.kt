@@ -3,9 +3,12 @@ package com.igilro.server.health.api
 import com.igilro.server.health.application.CheckHealthUseCase
 import com.igilro.server.health.domain.HealthRepository
 import com.igilro.server.shared.api.RequestIdFilter
+import com.igilro.server.shared.api.error.GlobalExceptionHandler
+import org.springframework.http.MediaType
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -18,6 +21,7 @@ class HealthControllerTest {
 
     private fun mvc(ready: Boolean) = MockMvcBuilders
         .standaloneSetup(HealthController(CheckHealthUseCase(HealthRepository { ready }, clock)))
+        .setControllerAdvice(GlobalExceptionHandler(clock))
         .addFilters<org.springframework.test.web.servlet.setup.StandaloneMockMvcBuilder>(RequestIdFilter())
         .build()
 
@@ -31,9 +35,11 @@ class HealthControllerTest {
     }
 
     @Test
-    fun `unavailable database returns 503 with the same health contract`() {
-        mvc(false).perform(get("/api/v1/health"))
+    fun `unavailable database returns 503 with the Flutter error contract`() {
+        mvc(false).perform(get("/api/v1/health").accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isServiceUnavailable)
-            .andExpect(jsonPath("$.status").value("DOWN"))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
+            .andExpect(jsonPath("$.requestId").isString)
     }
 }

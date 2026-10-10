@@ -2,16 +2,18 @@ package com.igilro.server.health.api
 
 import com.igilro.server.health.application.CheckHealthUseCase
 import com.igilro.server.health.domain.HealthStatus
+import com.igilro.server.shared.api.error.ApiErrorResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 
 @RestController
 @RequestMapping("/api/v1/health")
@@ -23,12 +25,16 @@ class HealthController(private val checkHealth: CheckHealthUseCase) {
     @ApiResponse(
         responseCode = "503",
         description = "공간 DB 사용 불가",
-        content = [Content(schema = Schema(implementation = HealthResponse::class))],
+        content = [Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = Schema(implementation = ApiErrorResponse::class))],
     )
-    @ApiResponse(responseCode = "500", ref = "#/components/responses/InternalServerError")
-    fun check(): ResponseEntity<HealthResponse> {
+    @ApiResponse(
+        responseCode = "500",
+        description = "서버 오류",
+        content = [Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = Schema(implementation = ApiErrorResponse::class))],
+    )
+    fun check(): HealthResponse {
         val health = checkHealth.execute()
-        val status = if (health.status == HealthStatus.UP) HttpStatus.OK else HttpStatus.SERVICE_UNAVAILABLE
-        return ResponseEntity.status(status).body(HealthResponseMapper.toResponse(health))
+        if (health.status == HealthStatus.DOWN) throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE)
+        return HealthResponseMapper.toResponse(health)
     }
 }

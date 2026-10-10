@@ -1,6 +1,7 @@
 package com.igilro.server.integration
 
 import org.flywaydb.core.Flyway
+import org.hamcrest.Matchers.hasItems
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -61,6 +62,8 @@ class ServerIntegrationTest {
         mvc.perform(get("/api/v1/health")).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("UP"))
             .andExpect(jsonPath("$.checkedAt").isString)
+        mvc.perform(get("/actuator/health")).andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("UP"))
         mvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("UP"))
             .andExpect(jsonPath("$.components").doesNotExist())
@@ -71,6 +74,10 @@ class ServerIntegrationTest {
         jdbc.execute("DROP EXTENSION postgis")
         try {
             mvc.perform(get("/api/v1/health")).andExpect(status().isServiceUnavailable)
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.requestId").isString)
+            mvc.perform(get("/actuator/health")).andExpect(status().isServiceUnavailable)
                 .andExpect(jsonPath("$.status").value("DOWN"))
             mvc.perform(get("/actuator/health/readiness")).andExpect(status().isServiceUnavailable)
                 .andExpect(jsonPath("$.status").value("DOWN"))
@@ -86,15 +93,19 @@ class ServerIntegrationTest {
             .andExpect(jsonPath("$.paths['/api/v1/health'].get.operationId").value("checkHealth"))
             .andExpect(jsonPath("$.paths['/api/v1/health'].get.responses['503']").exists())
             .andExpect(jsonPath("$.components.schemas.HealthResponse.properties.checkedAt.format").value("date-time"))
-            .andExpect(jsonPath("$.components.schemas.Problem.properties.requestId.format").value("uuid"))
+            .andExpect(jsonPath("$.components.schemas.ApiErrorResponse.properties.requestId.format").value("uuid"))
+            .andExpect(jsonPath("$.components.schemas.ApiErrorResponse.required").value(hasItems("code", "requestId")))
+            .andExpect(jsonPath("$.paths['/api/v1/health'].get.responses['503'].content['application/json'].schema['\$ref']")
+                .value("#/components/schemas/ApiErrorResponse"))
+            .andExpect(jsonPath("$.paths['/api/v1/health'].get.responses['500'].content['application/json']").exists())
         mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk)
             .andExpect(content().contentTypeCompatibleWith("text/html"))
     }
 
     @Test
-    fun `unknown production resource uses the common problem contract`() {
+    fun `unknown production resource uses the Flutter JSON error contract`() {
         mvc.perform(get("/api/v1/missing")).andExpect(status().isNotFound)
-            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+            .andExpect(content().contentTypeCompatibleWith("application/json"))
             .andExpect(jsonPath("$.code").value("NOT_FOUND"))
             .andExpect(jsonPath("$.requestId").isString)
     }
