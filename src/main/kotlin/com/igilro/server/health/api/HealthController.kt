@@ -25,6 +25,7 @@ class HealthController(private val checkHealth: CheckHealthUseCase) {
         description = "공간 DB 사용 불가",
         content = [Content(schema = Schema(implementation = HealthResponse::class))],
     )
+    @ApiResponse(responseCode = "500", ref = "#/components/responses/InternalServerError")
     fun check(): ResponseEntity<HealthResponse> {
         val health = checkHealth.execute()
         val status = if (health.status == HealthStatus.UP) HttpStatus.OK else HttpStatus.SERVICE_UNAVAILABLE
