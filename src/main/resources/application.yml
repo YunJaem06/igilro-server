@@ -40,7 +40,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db
+          include: readinessState,db,postgis
 
 springdoc:
   api-docs:
