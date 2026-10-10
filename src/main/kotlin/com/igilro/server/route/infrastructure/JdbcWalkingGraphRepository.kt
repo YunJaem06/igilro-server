@@ -9,21 +9,25 @@ import java.util.concurrent.ConcurrentHashMap
 @Repository
 class JdbcWalkingGraphRepository(private val jdbc: JdbcTemplate) : WalkingGraphRepository {
     private data class ActiveDataset(val version: String, val area: String, val bounds: Bounds, val nodes: Int, val edges: Int)
-    private val cache = ConcurrentHashMap<String, WalkingGraph>()
+    private val cache = ConcurrentHashMap<ActiveDataset, WalkingGraph>()
 
     override fun findActiveGraphs(): List<WalkingGraph> = try {
         // Metadata is checked for every request; an imported dataset's contents are immutable.
         val active = jdbc.query(
-            """SELECT a.id, a.west, a.south, a.east, a.north, d.id AS version, d.node_count, d.edge_count
+            """SELECT a.id, a.west, a.south, a.east, a.north, d.id AS version, d.area_id AS dataset_area, d.node_count, d.edge_count
                 FROM route_service_area a JOIN route_dataset d ON d.id=a.active_dataset_id ORDER BY a.id""".trimIndent(),
         ) { row, _ ->
+            require(row.getString("id") == row.getString("dataset_area")) { "Active dataset belongs to another area" }
             ActiveDataset(row.getString("version"), row.getString("id"),
                 Bounds(row.getDouble("west"), row.getDouble("south"), row.getDouble("east"), row.getDouble("north")),
                 row.getInt("node_count"), row.getInt("edge_count"))
         }
-        cache.keys.retainAll(active.map { it.version }.toSet())
-        active.map { dataset -> cache.computeIfAbsent(dataset.version) { load(dataset) } }
+        cache.keys.retainAll(active.toSet())
+        active.map { dataset -> cache.computeIfAbsent(dataset) { load(dataset) } }
     } catch (ex: DataAccessException) {
+        throw RouteFailure(RouteFailureReason.DATA_UNAVAILABLE, ex)
+    } catch (ex: IllegalArgumentException) {
+        // Stored geometry and graph invariants can be invalid even when SQL CHECKs pass.
         throw RouteFailure(RouteFailureReason.DATA_UNAVAILABLE, ex)
     }
 

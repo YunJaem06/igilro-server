@@ -117,6 +117,51 @@ class RouteIntegrationTest {
     }
 
     @Test
+    fun `reusing a version with different snapshot contents fails without replacing active data`() {
+        val changedNode = graph.nodes.entries.first()
+        val changedEdge = graph.edges.first()
+        val conflicts = listOf(
+            graph.copy(areaId = "other"),
+            graph.copy(checksum = "f".repeat(64)),
+            graph.copy(source = "other-source"),
+            graph.copy(sourceTimestamp = graph.sourceTimestamp.plusSeconds(1)),
+            graph.copy(nodes = graph.nodes + (changedNode.key to changedNode.value.copy(latitude = changedNode.value.latitude + 0.00001))),
+            graph.copy(edges = graph.edges.map { if (it == changedEdge) it.copy(kind = EdgeKind.STEPS) else it }),
+        )
+        conflicts.forEach { conflicting ->
+            assertFailsWith<IllegalArgumentException> { importer.execute(conflicting) }
+            assertEquals(graph.dataVersion, repository.findActiveGraphs().single().dataVersion)
+            assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM route_service_area", Int::class.java))
+        }
+        assertTrue(importer.execute(graph).reused)
+    }
+
+    @Test
+    fun `cached graph follows service area metadata changes`() {
+        repository.findActiveGraphs()
+        val expanded = graph.bounds.copy(east = graph.bounds.east + 0.001)
+        importer.execute(graph.copy(bounds = expanded))
+        assertEquals(expanded, repository.findActiveGraphs().single().bounds)
+    }
+
+    @Test
+    fun `invalid persisted graph data returns routing unavailable and can recover`() {
+        val version = "osm-v1-" + "c".repeat(64)
+        importer.execute(graph.copy(dataVersion = version))
+        val node = graph.nodes.entries.first()
+        jdbc.update("UPDATE route_node SET location=ST_SetSRID(ST_MakePoint(?,?),4326) WHERE dataset_id=? AND osm_id=?",
+            127.5, 37.54, version, node.key)
+        val id = UUID.randomUUID().toString()
+        mvc.perform(request(query()).header("X-Request-Id", id)).andExpect(status().isServiceUnavailable)
+            .andExpect(jsonPath("$.code").value("ROUTING_DATA_UNAVAILABLE"))
+            .andExpect(jsonPath("$.requestId").value(id))
+            .andExpect(header().string("X-Request-Id", id))
+        jdbc.update("UPDATE route_node SET location=ST_SetSRID(ST_MakePoint(?,?),4326) WHERE dataset_id=? AND osm_id=?",
+            node.value.longitude, node.value.latitude, version, node.key)
+        mvc.perform(request(query())).andExpect(status().isOk)
+    }
+
+    @Test
     fun `SQL failure rolls back a new dataset and leaves the prior active graph usable`() {
         val replacement = graph.copy(dataVersion = "osm-v1-" + "a".repeat(64), edges = graph.edges.mapIndexed { index, edge -> if (index == 0) edge.copy(kind = EdgeKind.WALKWAY, wayId = 0) else edge })
         // Bypass the application validation to exercise the database transaction itself.

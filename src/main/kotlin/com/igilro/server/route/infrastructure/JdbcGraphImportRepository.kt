@@ -17,7 +17,9 @@ class JdbcGraphImportRepository(
         // Serialize imports, while route requests keep reading the previous committed dataset.
         jdbc.execute("SELECT pg_advisory_xact_lock(73694117)")
         val reused = jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM route_dataset WHERE id = ?)", Boolean::class.java, graph.dataVersion) == true
-        if (!reused) {
+        if (reused) {
+            verifyExistingSnapshot(graph)
+        } else {
             jdbc.update(
                 "INSERT INTO route_dataset(id, area_id, source, source_timestamp, checksum, node_count, edge_count) VALUES (?,?,?,?,?,?,?)",
                 graph.dataVersion, graph.areaId, graph.source, java.sql.Timestamp.from(graph.sourceTimestamp), graph.checksum,
@@ -62,6 +64,32 @@ class JdbcGraphImportRepository(
             polygonWkt(graph.bounds), graph.dataVersion,
         )
         GraphImportSummary(graph.dataVersion, graph.nodes.size, graph.edges.size, reused)
+    }
+
+    private fun verifyExistingSnapshot(graph: GraphImport) {
+        val metadataMatches = jdbc.query(
+            "SELECT area_id, source, source_timestamp = ? AS timestamp_matches, checksum, node_count, edge_count FROM route_dataset WHERE id=?",
+            { row, _ ->
+                row.getString("area_id") == graph.areaId && row.getString("source") == graph.source &&
+                    row.getBoolean("timestamp_matches") &&
+                    row.getString("checksum") == graph.checksum && row.getInt("node_count") == graph.nodes.size &&
+                    row.getInt("edge_count") == graph.edges.size
+            }, java.sql.Timestamp.from(graph.sourceTimestamp), graph.dataVersion,
+        ).single()
+        require(metadataMatches) { "Dataset ${graph.dataVersion} already exists with different metadata" }
+        val nodes = jdbc.query(
+            "SELECT osm_id, ST_X(location) AS lon, ST_Y(location) AS lat FROM route_node WHERE dataset_id=?",
+            { row, _ -> row.getLong("osm_id") to Coordinate(row.getDouble("lon"), row.getDouble("lat")) }, graph.dataVersion,
+        ).toMap()
+        require(nodes == graph.nodes) { "Dataset ${graph.dataVersion} already exists with different nodes" }
+        val edges = jdbc.query(
+            "SELECT id, osm_way_id, from_node, to_node, kind, forward_allowed, backward_allowed FROM route_edge WHERE dataset_id=? ORDER BY id",
+            { row, _ ->
+                ImportedEdge(row.getLong("id"), row.getLong("osm_way_id"), row.getLong("from_node"), row.getLong("to_node"),
+                    EdgeKind.valueOf(row.getString("kind")), row.getBoolean("forward_allowed"), row.getBoolean("backward_allowed"))
+            }, graph.dataVersion,
+        )
+        require(edges == graph.edges.sortedBy { it.id }) { "Dataset ${graph.dataVersion} already exists with different edges" }
     }
 
     private fun polygonWkt(bounds: Bounds) = with(bounds) {
