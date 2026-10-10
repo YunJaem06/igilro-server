@@ -36,6 +36,9 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.4.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -47,4 +50,24 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.test {
+    useJUnitPlatform { excludeTags("integration") }
+}
+
+val integrationTest = tasks.register<Test>("integrationTest") {
+    description = "Runs PostgreSQL/PostGIS integration tests (requires Docker and the local PostGIS image)."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("integration") }
+    // Docker and the rebuilt local image are not tracked Gradle inputs.
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    shouldRunAfter(tasks.test)
+}
+
+tasks.check {
+    dependsOn(integrationTest)
 }
