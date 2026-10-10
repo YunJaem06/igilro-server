@@ -9,16 +9,11 @@ class DijkstraRoutePlanner(private val snapper: EdgeSnapper = EdgeSnapper()) {
     fun find(graph: WalkingGraph, origin: Coordinate, destination: Coordinate, snapLimitMeters: Double): WalkingRoute {
         val starts = snapper.candidates(origin, graph, snapLimitMeters)
         val ends = snapper.candidates(destination, graph, snapLimitMeters)
-        fun identity(snap: SnappedLocation) = when {
-            snap.fraction < 1e-9 -> snap.edge.from
-            snap.fraction > 1 - 1e-9 -> snap.edge.to
-            else -> -snap.edge.id
-        }
-        if (identity(starts.first()) == identity(ends.first()) &&
+        if (starts.first().positionId == ends.first().positionId &&
             starts.first().coordinate.distanceTo(ends.first().coordinate) < 0.01
         ) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
         val pairs = starts.flatMap { a -> ends.map { b -> a to b } }
-            .distinctBy { (a, b) -> identity(a) to identity(b) }
+            .distinctBy { (a, b) -> a.positionId to b.positionId }
             .sortedBy { (a, b) -> a.distanceMeters + b.distanceMeters }
         var best: WalkingRoute? = null
         var bestSnapDistance = Double.POSITIVE_INFINITY
@@ -106,7 +101,7 @@ class DijkstraRoutePlanner(private val snapper: EdgeSnapper = EdgeSnapper()) {
     }
 
     companion object {
-        const val VERSION = "dijkstra-v1-nearest-connected8-snap50-direct5km"
+        const val VERSION = "dijkstra-v2-distinct8-snap50-direct5km"
         private const val START = -1L
         private const val END = -2L
     }

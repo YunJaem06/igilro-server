@@ -23,7 +23,8 @@ class EdgeSnapper {
             }
             SnappedLocation(edge, fraction, coordinate, point.distanceTo(coordinate))
         }.filter { it.distanceMeters <= maximumDistanceMeters }
-            .sortedWith(compareBy<SnappedLocation> { it.distanceMeters }.thenBy { it.edge.id }).take(8).toList()
+            .sortedWith(compareBy<SnappedLocation> { it.distanceMeters }.thenBy { it.edge.id })
+            .distinctBy { it.positionId }.take(8).toList()
         if (candidates.isEmpty()) throw RouteFailure(RouteFailureReason.NOT_FOUND)
         return candidates
     }

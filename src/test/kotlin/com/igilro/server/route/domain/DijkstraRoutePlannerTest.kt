@@ -70,6 +70,24 @@ class DijkstraRoutePlannerTest {
     }
 
     @Test
+    fun `incident edges at an isolated endpoint do not exhaust distinct snap candidates`() {
+        val nodes = mutableMapOf(1L to a)
+        val edges = (2L..9L).map { id ->
+            nodes[id] = Coordinate(127.029, 37.54 + (id - 2) * 0.0001)
+            WalkingEdge(id - 1, 1, id, 100.0)
+        }.toMutableList()
+        val connectedStart = Coordinate(127.03, 37.5402)
+        val connectedEnd = Coordinate(127.034, 37.5402)
+        nodes[10] = connectedStart
+        nodes[11] = connectedEnd
+        edges.add(WalkingEdge(9, 10, 11, 350.0))
+
+        val route = planner.find(graph(edges, nodes), a, connectedEnd, 50.0)
+        assertEquals(listOf(connectedStart, connectedEnd), route.coordinates)
+        assertTrue(route.origin.distanceMeters in 22.0..23.0)
+    }
+
+    @Test
     fun `distinct requests snapping to the same point are rejected`() {
         val g = graph(listOf(WalkingEdge(1, 1, 2, 200.0)))
         assertEquals(RouteFailureReason.INVALID_QUERY, assertFailsWith<RouteFailure> {

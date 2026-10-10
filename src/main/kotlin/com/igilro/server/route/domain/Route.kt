@@ -15,7 +15,14 @@ data class SnappedLocation(
     val fraction: Double,
     val coordinate: Coordinate,
     val distanceMeters: Double,
-)
+) {
+    // All incident edge endpoints represent the same graph position at a shared node.
+    internal val positionId: Long get() = when {
+        fraction < 1e-9 -> edge.from
+        fraction > 1 - 1e-9 -> edge.to
+        else -> -edge.id
+    }
+}
 
 data class WalkingRoute(
     val coordinates: List<Coordinate>,
