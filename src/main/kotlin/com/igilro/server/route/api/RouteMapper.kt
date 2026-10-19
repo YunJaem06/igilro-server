@@ -1,6 +1,7 @@
 package com.igilro.server.route.api
 
 import com.igilro.server.route.domain.*
+import com.igilro.server.route.domain.shade.ShadeEvaluation
 import java.util.UUID
 import kotlin.math.ceil
 import kotlin.math.round
@@ -24,6 +25,9 @@ object RouteMapper {
                 distanceMeters = round(route.distanceMeters * 10) / 10,
                 durationSeconds = seconds,
                 additionalDurationSeconds = (seconds - baselineSeconds).coerceAtLeast(0),
+                metrics = RouteMetricsResponse(shadeRatio = result.shade.ratio),
+                shadeEvaluation = ShadeEvaluationResponse(result.shade.status.name, result.shade.coverage,
+                    result.shade.dataVersion, ShadeEvaluation.MODEL_VERSION, result.shade.attribution, result.shade.solarAltitudeDegrees),
             )),
             evaluatedAt = result.evaluatedAt,
             dataVersion = result.dataVersion,

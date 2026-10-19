@@ -7,6 +7,7 @@ class SearchWalkingRouteUseCase(
     private val repository: WalkingGraphRepository,
     private val planner: DijkstraRoutePlanner,
     private val clock: Clock,
+    private val shadeEvaluator: RouteShadeEvaluator,
 ) {
     fun execute(query: RouteQuery): RouteSearchResult {
         if (query.travelMode != "walking" || query.mode != "fastest" ||
@@ -18,6 +19,8 @@ class SearchWalkingRouteUseCase(
         val graph = graphs.firstOrNull { it.bounds.contains(query.origin) && it.bounds.contains(query.destination) }
             ?: throw RouteFailure(RouteFailureReason.OUTSIDE_SUPPORTED_AREA)
         if (query.origin.distanceTo(query.destination) > 5_000) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
-        return RouteSearchResult(planner.find(graph, query.origin, query.destination, 50.0), graph.dataVersion, evaluatedAt)
+        val route = planner.find(graph, query.origin, query.destination, 50.0)
+        val shade = shadeEvaluator.evaluate(graph.areaId, route.coordinates, evaluatedAt)
+        return RouteSearchResult(route, graph.dataVersion, evaluatedAt, shade)
     }
 }

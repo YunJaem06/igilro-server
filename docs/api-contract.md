@@ -6,6 +6,10 @@ Flutter의 `API_BASE_URL`에는 origin만 넣습니다. 기본 서버 origin은 
 
 현재 앱용 endpoint는 `GET /api/v1/health`, `POST /api/v1/routes/search`입니다. 장소 검색은 미구현입니다. [실제 경로 검색 계약과 실행 방법](phase-2-routing.md)을 참고합니다.
 
+DTO 연동용 [요청 JSON](examples/route-search-fixture-request.json), [건물 자료 없는 성공 응답](examples/route-search-fixture-response.json), [그늘 평가 가능한 성공 응답](examples/route-search-fixture-response-shade-available.json)은 현재 서버에서 합성 자료로 실제 캡처한 예시입니다. snapping과 두 attribution의 위치·타입·null 규칙은 [Phase 2의 전체 예시 설명](phase-2-routing.md)에 정리했습니다.
+
+Flutter는 지도 선택·현재 위치로 준비한 WGS84 좌표를 경로 요청의 origin/destination에 직접 전달할 수 있습니다. 장소명·주소·공급자 ID는 현재 경로 요청에 필요하지 않으며 장소 검색 API 구현을 기다리지 않아도 됩니다. JSON 요청에는 정의된 필드만 전달합니다. 최신 Flutter 상태와 서버의 반영 현황은 [전달 내용 검토](flutter-handoff-review.md)를 참고합니다.
+
 ## 상태 확인
 
 `GET /api/v1/health`는 PostgreSQL 연결과 PostGIS 공간 함수 호출에 성공하면 HTTP 200을 반환합니다.
@@ -78,10 +82,18 @@ Phase 2 경로 검색은 아래 업무 코드를 구현했습니다. 요청 제�
 | 소요·추가 시간 | `durationSeconds`, `additionalDurationSeconds`, 초(s); 전체 예상 시간은 올림 정수, fastest 자체의 추가 시간은 0 |
 | 입력 시각 | `departureAt`, RFC 3339, `Z` 또는 오프셋 필수 |
 | 평가 시각 | `evaluatedAt`, 실제 적용한 출발·환경 평가 기준 시각, UTC `Z`로 응답 |
-| 점수 | 현재 네 metric 모두 null; 이후 제공 시 0..1 및 coverage와 산출 방식 명시 |
+| 환경 지표 | shadeRatio는 전체 경로 평가 시 0..1, 미평가 시 null. 다른 세 metric은 null. 향후 점수는 0..1, trafficSignalCount는 개수 |
 
 `evaluatedAt`은 응답 생성 시각이 아닙니다. `departureAt`이 주어지면 같은 순간을 UTC로 정규화합니다. 생략하면 주입된 Clock의 현재 UTC 시각을 사용하여 응답합니다. 향후 이동 중 구간별 시각을 사용하는 모델은 이 출발 기준과 별도 계약으로 확장합니다.
 
 GeoJSON 좌표는 도(degree) 단위이므로 미터 거리 계산에는 `geography` 또는 적절한 투영 좌표계를 사용합니다. 그림자와 보행 구간의 교차 길이도 일관된 미터 단위 좌표계에서 계산합니다. 그늘 비율은 그림자 영역을 합집합 처리한 뒤 `그늘과 겹치는 보행 길이 / 전체 보행 길이`로 평가하며 높이 누락과 자료 품질을 함께 기록합니다.
 
 현재 모델의 거리·시간은 스냅 지점 사이의 네트워크 경로를 기준으로 합니다. 접근 거리와 실제 끝점을 snapping으로 함께 제공합니다. 보행 1.4m/s·계단 0.9m/s의 정적 모델이며 신호 대기는 포함하지 않습니다. travelMode/mode는 walking/fastest만 지원하고 생략하면 기본값을 사용합니다. unknown field는 400으로 거부합니다. dataVersion은 데이터 스냅샷, timeModelVersion은 시간 비용 모델, routingModelVersion은 탐색·snapping 정책 버전입니다. 경로 ID는 응답 내 식별자이며 저장·상세 조회는 미지원입니다.
+
+Flutter 전달 예시에 더해 현재 응답은 baselineDurationSeconds, timeModelVersion, routingModelVersion, snapping, attribution을 제공합니다. 연동 시 Flutter DTO의 추가 필드 처리 정책을 확인하고, 실제 경로 끝점·접근 거리와 OSM 출처 표시를 반영합니다. shadeRatio/quietScore/lightingScore의 향후 0..1 비율·점수 규칙은 개수 필드인 trafficSignalCount에는 적용하지 않습니다.
+
+## 건물 그늘 평가 (Phase 3)
+
+기존 fastest 경로의 metrics.shadeRatio를 건물 도형·높이와 evaluatedAt 기준으로 계산합니다. routes[].shadeEvaluation에 status, coverage, dataVersion, modelVersion, attribution, solarAltitudeDegrees를 추가합니다. 건물 버전·출처는 이 객체에 제공하며 최상위 dataVersion/attribution은 기존 보행 그래프/OSM 계약을 유지합니다.
+
+전체 경로 커버리지가 1인 AVAILABLE에서만 shadeRatio를 제공합니다. DATA_UNAVAILABLE, INCOMPLETE_COVERAGE, NIGHT, LOW_SUN, UNSUPPORTED_TIME에서는 null입니다. 확인된 그늘 없음만 0이며 밤을 1로 표시하지 않습니다. 환경 자료가 없어도 유효한 fastest 경로는 200입니다. 출발 시각에 고정된 한국 pilot의 평면 건물 그림자 모델이며 이동 중 시간·구름·나무·지형은 미반영입니다. 다른 세 metric은 계속 null이고 shade/sunlight mode는 아직 미지원입니다. 상세 상태·커버리지·입력 형식은 [그늘 평가 문서](phase-3-shade.md)를 참고합니다.

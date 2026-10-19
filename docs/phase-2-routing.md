@@ -2,7 +2,7 @@
 
 ## 구현 범위
 
-`POST /api/v1/routes/search`가 실제 OSM 보행 그래프에서 `walking` / `fastest` 경로 한 개를 계산합니다. Domain/Application은 순수 Kotlin과 JDK를 사용하며 OSM 해석·XML·JDBC·Spring·HTTP는 외부 계층에 둡니다. 장소 검색, 그림자, 환경 점수, 인증과 요청 제한 기능은 다음 단계입니다.
+`POST /api/v1/routes/search`가 실제 OSM 보행 그래프에서 `walking` / `fastest` 경로 한 개를 계산합니다. Domain/Application은 순수 Kotlin과 JDK를 사용하며 OSM 해석·XML·JDBC·Spring·HTTP는 외부 계층에 둡니다. Phase 3에서 기존 경로의 [건물 그늘 평가](phase-3-shade.md)를 추가했습니다. 장소 검색, 그늘 우선 경로, 다른 환경 점수, 인증과 요청 제한 기능은 다음 단계입니다.
 
 현재 pilot 범위는 서울숲 주변 직사각형 `[서쪽 127.027, 남쪽 37.533, 동쪽 127.055, 북쪽 37.558]`입니다. 범위 내부라도 50m 안에 연결 가능한 보행 구간이 없으면 404입니다. 이는 모든 장소의 출입구와 현장 통행 가능 여부를 검증한 서비스 영역이라는 뜻은 아닙니다.
 
@@ -13,7 +13,7 @@ docker compose up --build -d --wait
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-처음 실행하면 Flyway V1/PostGIS와 V2/그래프 테이블을 적용합니다. 아직 그래프를 적재하지 않은 DB의 경로 요청은 HTTP 503 `ROUTING_DATA_UNAVAILABLE`입니다. 현재 개발 DB에는 실제 스냅샷을 적재했습니다. 새 DB나 볼륨 초기화 후에는 아래 준비·적재를 다시 수행합니다.
+처음 실행하면 Flyway V1/PostGIS, V2/그래프 테이블과 V3/건물 그늘 스키마를 적용합니다. 아직 그래프를 적재하지 않은 DB의 경로 요청은 HTTP 503 `ROUTING_DATA_UNAVAILABLE`입니다. 2026-10-10 Mac 검증 환경의 개발 DB에는 실제 스냅샷을 적재했습니다. 데이터 파일과 DB 볼륨은 Git에 포함되지 않으므로 새 환경·새 DB나 볼륨 초기화 후에는 아래 준비·적재를 다시 수행합니다.
 
 ## OSM 데이터 준비
 
@@ -66,8 +66,135 @@ curl -i http://localhost:8080/api/v1/routes/search \
 - 거리와 시간은 **스냅된 두 지점 사이의 그래프 경로** 기준입니다. 입력 위치에서 구간까지의 접근선은 그래프와 통행 가능 여부가 확인되지 않았으므로 경로 형상·거리·시간에 추가하지 않습니다. 앱은 `snapping`의 실제 끝점과 접근 거리를 표시해야 합니다.
 - 네트워크 거리는 PostGIS geography 기반 미터이며, 구간 중간 스냅은 작은 지역의 로컬 투영으로 분할 비율을 근사합니다. 응답 거리는 소수 한 자리, 전체 시간 비용은 초 단위 올림입니다.
 - 기본 보행 속도 1.4m/s, 계단 0.9m/s의 정적 모델입니다. 신호 대기·실시간 통제·개인 보행 속도를 계산하지 않습니다.
-- fastest 자체가 기준 경로이므로 `additionalDurationSeconds`는 계산한 기준 시간과의 차이 0입니다. 환경 metric 네 값은 미계산 `null`입니다.
+- fastest 자체가 기준 경로이므로 `additionalDurationSeconds`는 계산한 기준 시간과의 차이 0입니다. Phase 2 검증 당시 환경 metric은 모두 null이었으며, Phase 3에서는 건물 자료와 전체 커버리지가 있을 때 shadeRatio를 계산합니다.
 - 경로 `id`는 응답 안에서만 식별하며 저장·재조회와 상세 API는 미지원입니다.
+
+### DTO 연동용 요청·성공 응답 JSON
+
+위의 서울숲 실제 데이터 요청은 [route-search.json](examples/route-search.json)입니다. 아래 예시는 **2026-10-19에 현재 서버 JAR와 격리된 임시 PostGIS에서 합성 보행·건물 fixture로 실제 HTTP 200 응답을 캡처한 것**입니다. 실제 서울숲의 800.8m 경로와는 다른 자료·좌표이며, DTO 파싱과 화면 개발용입니다. 실제 서비스 API도 적재한 그래프로 계산하며 이 예시 값을 고정 반환하지 않습니다. 캡처용 서버와 DB는 종료·정리했습니다.
+
+대응하는 요청([JSON 파일](examples/route-search-fixture-request.json)):
+
+```json
+{
+  "origin": {
+    "longitude": 127.0302,
+    "latitude": 37.54002
+  },
+  "destination": {
+    "longitude": 127.0318,
+    "latitude": 37.54002
+  },
+  "travelMode": "walking",
+  "mode": "fastest",
+  "departureAt": "2026-10-10T14:00:00+09:00"
+}
+```
+
+건물 자료를 적재하기 전 성공 응답([전체 JSON 파일](examples/route-search-fixture-response.json)):
+
+```json
+{
+  "routes": [
+    {
+      "id": "72b79fc7-641c-4f81-9249-d63b0b56ddb0",
+      "mode": "fastest",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [127.0302, 37.54],
+          [127.031, 37.54],
+          [127.0318, 37.54]
+        ]
+      },
+      "distanceMeters": 141.4,
+      "durationSeconds": 102,
+      "additionalDurationSeconds": 0,
+      "metrics": {
+        "shadeRatio": null,
+        "quietScore": null,
+        "lightingScore": null,
+        "trafficSignalCount": null
+      },
+      "shadeEvaluation": {
+        "status": "DATA_UNAVAILABLE",
+        "coverage": null,
+        "dataVersion": null,
+        "modelVersion": "building-prism-v1-noaa-departure-5179-minsun5",
+        "attribution": null,
+        "solarAltitudeDegrees": 40.28185900153385
+      }
+    }
+  ],
+  "evaluatedAt": "2026-10-10T05:00:00Z",
+  "dataVersion": "osm-v1-580853896cebd0ebdc882105337f858779876e6e855472aff3afda0d3e0156e0",
+  "timeModelVersion": "walking-v1-flat-1.4-steps-0.9",
+  "routingModelVersion": "dijkstra-v2-distinct8-snap50-direct5km",
+  "baselineDurationSeconds": 102,
+  "snapping": {
+    "origin": {
+      "coordinate": {
+        "longitude": 127.0302,
+        "latitude": 37.54
+      },
+      "distanceMeters": 2.2
+    },
+    "destination": {
+      "coordinate": {
+        "longitude": 127.0318,
+        "latitude": 37.54
+      },
+      "distanceMeters": 2.2
+    }
+  },
+  "attribution": "© OpenStreetMap contributors"
+}
+```
+
+### snapping과 attribution의 정확한 구조
+
+| JSON 경로 | 타입 / 의미 |
+| --- | --- |
+| snapping | 최상위 필수 객체. routes[] 안에 들어가지 않음 |
+| snapping.origin / snapping.destination | 각각 실제 경로 시작점 / 끝점의 스냅 객체 |
+| snapping.*.coordinate | {longitude: number, latitude: number}. GeoJSON 배열과 달리 좌표 객체 |
+| snapping.*.distanceMeters | 입력 핀에서 스냅 지점까지의 접근 거리(m), JSON number |
+| attribution | 최상위 문자열. 현재 값은 © OpenStreetMap contributors이며 객체·배열이 아님 |
+| routes[].shadeEvaluation.attribution | 건물 자료의 별도 출처 문자열 또는 null. 최상위 OSM 출처와 별도로 표시 |
+
+경로 geometry의 첫/끝 좌표는 위 예시의 스냅 좌표입니다. 입력 핀의 latitude=37.54002와 경로의 latitude=37.54 사이 2.2m 접근 거리는 geometry·distanceMeters·durationSeconds에 더하지 않습니다. 반올림·좌표 근사에 따른 작은 수치 오차는 허용해야 합니다.
+
+### shadeEvaluation을 포함한 성공 응답
+
+같은 서버가 실행 중인 상태에서 [합성 건물 fixture](../src/test/resources/shade/buildings.geojson)를 적재하고 같은 요청을 보냈습니다. 경로·거리·시간·snapping·최상위 attribution은 동일하며 경로 id는 새로 생성됩니다. 달라진 metrics와 shadeEvaluation은 아래와 같습니다. 복사 가능한 [전체 성공 응답 JSON](examples/route-search-fixture-response-shade-available.json)도 제공합니다.
+
+```json
+{
+  "metrics": {
+    "shadeRatio": 0.21382726924445294,
+    "quietScore": null,
+    "lightingScore": null,
+    "trafficSignalCount": null
+  },
+  "shadeEvaluation": {
+    "status": "AVAILABLE",
+    "coverage": 1,
+    "dataVersion": "buildings-v1-deda27f20bc4b24de1f0efac3d31ea88691d727f631aad58079a55c9d038721a",
+    "modelVersion": "building-prism-v1-noaa-departure-5179-minsun5",
+    "attribution": "Synthetic test geometry; not real buildings",
+    "solarAltitudeDegrees": 40.28185900153385
+  }
+}
+```
+
+- shadeEvaluation은 routes[]의 각 경로 아래에 있습니다. 현재 Mapper는 객체를 항상 제공하며 DTO 타입은 nullable입니다.
+- shadeRatio는 0..1 비율, coverage는 평가 가능한 경로 비율입니다. 이 예시는 coverage=1로 전체를 평가해 약 21.38%를 반환했습니다. 다른 세 metric은 계속 null입니다.
+- status와 modelVersion은 문자열입니다. coverage, dataVersion, attribution, solarAltitudeDegrees는 null을 허용합니다. DATA_UNAVAILABLE에서도 태양 위치를 계산했다면 위 예시처럼 solarAltitudeDegrees가 숫자일 수 있습니다.
+- status는 AVAILABLE / DATA_UNAVAILABLE / INCOMPLETE_COVERAGE / NIGHT / LOW_SUN / UNSUPPORTED_TIME입니다. 전체 평가가 가능한 AVAILABLE에서만 shadeRatio가 숫자이며 나머지는 null입니다. 상태별 규칙은 [Phase 3 문서](phase-3-shade.md)를 따릅니다.
+- 최상위 dataVersion은 보행 그래프 버전, shadeEvaluation.dataVersion은 건물 버전입니다. 앱은 버전 문자열을 해석하지 않습니다.
+- durationSeconds·additionalDurationSeconds·baselineDurationSeconds는 정수, 거리·비율·고도는 JSON number입니다. Dart의 double 필드는 num.toDouble() 방식으로 정수 표기와 소수 표기를 모두 수용합니다. trafficSignalCount의 향후 값은 정수이며 현재 null입니다.
+- 이 JSON은 성공 본문 전체이며 별도 data/result 래퍼는 없습니다. 응답의 X-Request-Id는 헤더로 제공하고 성공 본문에는 requestId를 넣지 않습니다. 실패 본문에는 최상위 code/requestId가 있습니다.
+
 
 ## 데이터·탐색 설계
 
@@ -94,4 +221,4 @@ JVM 테스트는 손으로 결과를 확인할 수 있는 합성 그래프, OSM 
 
 실제 스냅샷은 34개의 무방향 연결 성분을 갖습니다. 최근접 구간이 단절 성분에 속할 수 있어 후보 snapping과 명시적 ROUTE_NOT_FOUND가 필요합니다. 지도 현장 대조, 보행 진입점, relation 기반 규칙과 운영시간, 경계 데이터, 신호·경사·개인 속도 모델은 후속 데이터 품질 작업입니다. 서버의 통계·태그·공간 검증은 현장 통행 검증을 대체하지 않습니다.
 
-장소 검색 공급자/캐시 정책을 확정하고 place feature를 추가한 뒤 Flutter에서 실제 경로를 연결할 수 있습니다. 건물·높이·태양 위치·그림자·환경 점수와 복수 가중치는 이후 단계입니다. 데이터와 파생 데이터의 이용 조건은 [OSM 공식 ODbL 안내](https://www.openstreetmap.org/copyright)를 따르며, 응답 attribution의 앱 표시 방식도 함께 반영합니다.
+Flutter는 지도 선택·현재 위치로 준비한 WGS84 출발지/도착지 좌표로 현재 fastest API를 바로 연결할 수 있습니다. 장소 검색 공급자/캐시 정책 확정과 place feature 추가는 별도 후속 작업이며 경로 API 연결의 선행 조건이 아닙니다. 건물·높이·태양 위치·그림자·환경 점수와 복수 가중치는 이후 단계입니다. 데이터와 파생 데이터의 이용 조건은 [OSM 공식 ODbL 안내](https://www.openstreetmap.org/copyright)를 따르며, 응답 attribution의 앱 표시 방식도 함께 반영합니다.

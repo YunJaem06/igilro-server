@@ -1,6 +1,6 @@
 # 이길로 서버
 
-사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 Phase 2의 실제 OSM 보행 그래프 적재·snapping·fastest 경로 API를 구현했습니다. 장소 검색과 그림자·환경 점수는 다음 단계입니다.
+사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 Phase 2의 실제 OSM 보행 그래프 적재·snapping·fastest 경로 API와 Phase 3의 건물 자료 적재·fastest 경로 그늘 평가를 구현했습니다. 장소 검색과 그늘 우선 경로 최적화는 다음 단계입니다.
 
 ## 기술 구성
 
@@ -71,7 +71,9 @@ Flutter `APP_ENV=development`는 서버 `local`, staging은 `dev`, production은
 
 ## 실제 경로 검색 (Phase 2)
 
-현재 개발 DB에는 서울숲 주변 실제 보행 그래프를 적재했습니다. 새 DB는 [데이터 준비·적재 절차](docs/phase-2-routing.md)를 먼저 실행합니다. 데이터가 없으면 경로 API는 HTTP 503 `ROUTING_DATA_UNAVAILABLE`입니다.
+2026-10-10 Mac 검증 환경의 개발 DB에는 서울숲 주변 실제 보행 그래프를 적재했습니다. 데이터 파일과 DB 볼륨은 Git에 포함되지 않으므로 새 환경·새 DB는 [데이터 준비·적재 절차](docs/phase-2-routing.md)를 먼저 실행합니다. 데이터가 없으면 경로 API는 HTTP 503 `ROUTING_DATA_UNAVAILABLE`입니다.
+
+Flutter가 지도 선택·현재 위치로 준비한 출발지/도착지 좌표를 바로 전달할 수 있습니다. 장소 검색 구현은 fastest 경로 API 연결의 선행 조건이 아닙니다. [최신 Flutter 전달 내용과 연동 사항](docs/flutter-handoff-review.md)을 참고합니다.
 
 ```bash
 curl -i http://localhost:8080/api/v1/routes/search \
@@ -79,7 +81,7 @@ curl -i http://localhost:8080/api/v1/routes/search \
   --data-binary @docs/examples/route-search.json
 ```
 
-검증 스냅샷의 위 요청은 약 800.8m·예상 573초의 실제 그래프 경로를 반환했습니다. 입력 위치와 경로 끝점 사이의 차이는 `snapping`으로 제공하며 미계산 환경 점수는 null입니다. 범위·시간 모델·후보 snapping·데이터 한계는 [Phase 2 실행/설계](docs/phase-2-routing.md), 측정 결과는 [검증 기록](docs/phase-2-verification.md)을 참고합니다.
+검증 스냅샷의 위 요청은 약 800.8m·예상 573초의 실제 그래프 경로를 반환했습니다. 입력 위치와 경로 끝점 사이의 차이는 `snapping`으로 제공합니다. 건물 자료와 출발 시각으로 전체 경로를 평가할 수 있을 때 shadeRatio를 계산하며 미평가 지표는 null입니다. 범위·시간 모델·후보 snapping·데이터 한계는 [Phase 2 실행/설계](docs/phase-2-routing.md), 측정 결과는 [검증 기록](docs/phase-2-verification.md), 건물 적재와 평가 상태는 [Phase 3 그늘 평가](docs/phase-3-shade.md)를 참고합니다.
 
 ## DB와 Flyway 확인
 
@@ -161,7 +163,7 @@ DB_USERNAME=igilro_app DB_PASSWORD=replace_with_secret \
 java -jar build/libs/igilro-server-0.0.1-SNAPSHOT.jar
 ```
 
-마이그레이션 계정에는 확장 생성 권한이 필요합니다. 운영 DB 관리자가 PostGIS를 미리 활성화하거나 `SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD`로 별도 마이그레이션 계정을 전달할 수 있습니다. 실제 운영 비밀은 저장소에 기록하지 않습니다. 기존 마이그레이션을 수정하지 않고 `V3__...sql`부터 추가하며, baseline과 Flyway clean은 자동 실행하지 않습니다.
+마이그레이션 계정에는 확장 생성 권한이 필요합니다. 운영 DB 관리자가 PostGIS를 미리 활성화하거나 `SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD`로 별도 마이그레이션 계정을 전달할 수 있습니다. 실제 운영 비밀은 저장소에 기록하지 않습니다. 기존 마이그레이션을 수정하지 않고 `V4__...sql`부터 추가하며, baseline과 Flyway clean은 자동 실행하지 않습니다. V3는 건물 그늘 자료와 공간 계산 함수를 추가합니다.
 
 ## 설계와 후속 작업
 
@@ -170,6 +172,7 @@ java -jar build/libs/igilro-server-0.0.1-SNAPSHOT.jar
 - [Flutter 전달 문서 반영·계약 검토](docs/flutter-handoff-review.md)
 - [실제 보행 경로 실행·설계](docs/phase-2-routing.md)
 - [Phase 2 데이터·성능 검증](docs/phase-2-verification.md)
+- [Phase 3 건물 자료·그늘 평가](docs/phase-3-shade.md)
 - [초기 분석·변경 내역·검증 결과](docs/phase-1-verification.md)
 
-다음 단계는 보행 데이터 품질 보완과 장소 검색, Flutter 실제 경로 연결, 건물·태양 위치 기반 그림자와 환경 점수, 복수 조건 가중치입니다. 미지원 기능의 빈 API나 샘플 성공 응답은 만들지 않습니다.
+다음 단계는 보행 데이터 품질 보완과 장소 검색, Flutter 실제 경로 연결, 실제 건물·높이 자료 수급과 현장 검증, 그늘 우선 경로와 기타 환경 점수·복수 조건 가중치입니다. 미지원 기능의 빈 API나 샘플 성공 응답은 만들지 않습니다.

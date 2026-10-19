@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "areaId": "shade-test",
+    "source": "synthetic-test-fixture",
+    "sourceTimestamp": "2026-10-10T00:00:00Z",
+    "attribution": "Synthetic test geometry; not real buildings",
+    "inventoryComplete": true,
+    "maximumHeightMeters": 20,
+    "coverage": {
+      "type": "Polygon",
+      "coordinates": [[[127.02,37.53],[127.05,37.53],[127.05,37.56],[127.02,37.56],[127.02,37.53]]]
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "fixture:building-1",
+      "properties": {"heightMeters": 20},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[127.0308,37.53995],[127.0311,37.53995],[127.0311,37.54005],[127.0308,37.54005],[127.0308,37.53995]]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "routes": [
+    {
+      "id": "35afe231-eef0-4ef8-9866-a11b7cf6af27",
+      "mode": "fastest",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [127.0302, 37.54],
+          [127.031, 37.54],
+          [127.0318, 37.54]
+        ]
+      },
+      "distanceMeters": 141.4,
+      "durationSeconds": 102,
+      "additionalDurationSeconds": 0,
+      "metrics": {
+        "shadeRatio": 0.21382726924445294,
+        "quietScore": null,
+        "lightingScore": null,
+        "trafficSignalCount": null
+      },
+      "shadeEvaluation": {
+        "status": "AVAILABLE",
+        "coverage": 1,
+        "dataVersion": "buildings-v1-deda27f20bc4b24de1f0efac3d31ea88691d727f631aad58079a55c9d038721a",
+        "modelVersion": "building-prism-v1-noaa-departure-5179-minsun5",
+        "attribution": "Synthetic test geometry; not real buildings",
+        "solarAltitudeDegrees": 40.28185900153385
+      }
+    }
+  ],
+  "evaluatedAt": "2026-10-10T05:00:00Z",
+  "dataVersion": "osm-v1-580853896cebd0ebdc882105337f858779876e6e855472aff3afda0d3e0156e0",
+  "timeModelVersion": "walking-v1-flat-1.4-steps-0.9",
+  "routingModelVersion": "dijkstra-v2-distinct8-snap50-direct5km",
+  "baselineDurationSeconds": 102,
+  "snapping": {
+    "origin": {
+      "coordinate": {
+        "longitude": 127.0302,
+        "latitude": 37.54
+      },
+      "distanceMeters": 2.2
+    },
+    "destination": {
+      "coordinate": {
+        "longitude": 127.0318,
+        "latitude": 37.54
+      },
+      "distanceMeters": 2.2
+    }
+  },
+  "attribution": "© OpenStreetMap contributors"
+}

@@ -1,6 +1,8 @@
 package com.igilro.server.route.domain
 
 import java.time.Instant
+import com.igilro.server.route.domain.shade.ShadeEvaluation
+import com.igilro.server.route.domain.shade.ShadeStatus
 
 data class RouteQuery(
     val origin: Coordinate,
@@ -32,4 +34,9 @@ data class WalkingRoute(
     val destination: SnappedLocation,
 )
 
-data class RouteSearchResult(val route: WalkingRoute, val dataVersion: String, val evaluatedAt: Instant)
+data class RouteSearchResult(
+    val route: WalkingRoute,
+    val dataVersion: String,
+    val evaluatedAt: Instant,
+    val shade: ShadeEvaluation = ShadeEvaluation(ShadeStatus.DATA_UNAVAILABLE),
+)

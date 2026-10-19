@@ -2,7 +2,7 @@
 
 ## Phase 1의 범위
 
-Phase 1 완료 시점의 기능은 서비스 상태 확인이었습니다. 이를 실제 기능 단위의 예시로 사용하여 경로·환경 기능에 같은 계층 규칙을 적용합니다. 이후 Phase 2에서 실제 보행 경로 검색을 추가했습니다. Flutter가 Mapbox로 지도를 표시하고 서버가 데이터와 계산을 담당한다는 책임 분담을 유지합니다. 건물 데이터와 그림자 계산은 다음 단계입니다.
+Phase 1 완료 시점의 기능은 서비스 상태 확인이었습니다. 이를 실제 기능 단위의 예시로 사용하여 경로·환경 기능에 같은 계층 규칙을 적용합니다. 이후 Phase 2에서 실제 보행 경로 검색, Phase 3에서 건물 자료 적재와 기존 경로의 그늘 평가를 추가했습니다. Flutter가 Mapbox로 지도를 표시하고 서버가 데이터와 계산을 담당한다는 책임 분담을 유지합니다.
 
 ## Feature-first 구조
 
@@ -61,3 +61,9 @@ OpenAPI는 [Spring Boot 4 지원을 명시한 springdoc 3.x](https://springdoc.o
 route feature에 검색·적재 UseCase, 순수 Kotlin의 좌표·그래프·Dijkstra·후보 snapping, API DTO/Mapper/업무 오류 변환, OSM/JDBC adapter를 추가했습니다. Domain은 WKT나 HTTP, XML과 DB 형식을 알지 않습니다. 활성 snapshot metadata를 읽고 불변 그래프를 버전별로 캐시하며, 새 적재는 트랜잭션 안에서 활성 포인터를 교체합니다.
 
 공통 오류 responder를 공유하여 feature별 오류도 code/requestId/JSON/로그 계약을 유지합니다. 상세 설계는 [Phase 2 문서](phase-2-routing.md)를 참고합니다.
+
+## Phase 3 건물 그늘 평가
+
+route/domain/shade에 순수 Kotlin의 태양 위치·평가 상태·건물 입력 모델을, application에 RouteShadeEvaluator 계약과 건물 적재 UseCase를 둡니다. infrastructure/shade가 GeoJSON을 Domain 도형으로 변환하고 JDBC/PostGIS 계산·트랜잭션·CLI를 담당합니다. Domain은 GeoJSON/WKT·Spring·JDBC를 참조하지 않습니다.
+
+검색 UseCase가 실제 계산된 경로 좌표와 동일한 evaluatedAt을 evaluator에 전달하고 API Mapper가 shadeRatio와 평가 메타데이터를 응답으로 변환합니다. 환경 자료가 없거나 공간 조회가 실패하면 null과 상태를 반환해 fastest 경로의 가용성을 유지합니다. 건물 자료는 그래프와 별도 버전으로 활성화하며, [Phase 3 문서](phase-3-shade.md)에 모델·커버리지·출처 표시 계약을 명시합니다.

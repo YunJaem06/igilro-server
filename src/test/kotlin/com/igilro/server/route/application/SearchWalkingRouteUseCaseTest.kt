@@ -1,6 +1,7 @@
 package com.igilro.server.route.application
 
 import com.igilro.server.route.domain.*
+import com.igilro.server.route.domain.shade.*
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
@@ -12,7 +13,21 @@ class SearchWalkingRouteUseCaseTest {
     private val a = Coordinate(127.03, 37.54)
     private val b = Coordinate(127.032, 37.54)
     private val graph = WalkingGraph("dataset", "test", Bounds(127.02, 37.53, 127.05, 37.56), mapOf(1L to a, 2L to b), listOf(WalkingEdge(1, 1, 2, 180.0)))
-    private fun useCase(graphs: List<WalkingGraph>) = SearchWalkingRouteUseCase(WalkingGraphRepository { graphs }, DijkstraRoutePlanner(), Clock.fixed(now, ZoneOffset.UTC))
+    private fun useCase(graphs: List<WalkingGraph>, evaluator: RouteShadeEvaluator = RouteShadeEvaluator { _, _, _ -> ShadeEvaluation(ShadeStatus.DATA_UNAVAILABLE) }) =
+        SearchWalkingRouteUseCase(WalkingGraphRepository { graphs }, DijkstraRoutePlanner(), Clock.fixed(now, ZoneOffset.UTC), evaluator)
+
+    @Test
+    fun `shade evaluates the computed network geometry at the applied departure instant`() {
+        val departure = Instant.parse("2026-10-10T05:00:00Z")
+        val result = useCase(listOf(graph), RouteShadeEvaluator { area, coordinates, time ->
+            assertEquals("test", area)
+            assertEquals(listOf(a, b), coordinates)
+            assertEquals(departure, time)
+            ShadeEvaluation(ShadeStatus.AVAILABLE, 0.4, 1.0, "buildings-test")
+        }).execute(RouteQuery(a, b, departureAt = departure))
+        assertEquals(0.4, result.shade.ratio)
+        assertEquals(180.0, result.route.distanceMeters)
+    }
 
     @Test
     fun `missing dataset is distinguished from route not found`() {

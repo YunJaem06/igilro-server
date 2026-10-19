@@ -11,10 +11,22 @@ data class LineStringResponse(
 )
 
 data class RouteMetricsResponse(
+    @field:Schema(description = "전체 경로를 평가한 건물 그늘 길이 비율. 미평가 시 null이며 shadeEvaluation에 사유 제공", minimum = "0", maximum = "1")
     val shadeRatio: Double? = null,
     val quietScore: Double? = null,
     val lightingScore: Double? = null,
     val trafficSignalCount: Int? = null,
+)
+
+data class ShadeEvaluationResponse(
+    @field:Schema(allowableValues = ["AVAILABLE", "DATA_UNAVAILABLE", "INCOMPLETE_COVERAGE", "NIGHT", "LOW_SUN", "UNSUPPORTED_TIME"])
+    val status: String,
+    @field:Schema(description = "전체 경로 중 건물 목록·높이·주변 범위를 모두 평가할 수 있는 길이 비율. 자료 없음은 null", minimum = "0", maximum = "1")
+    val coverage: Double?,
+    val dataVersion: String?,
+    val modelVersion: String,
+    val attribution: String?,
+    val solarAltitudeDegrees: Double?,
 )
 
 data class RouteResponse(
@@ -25,6 +37,7 @@ data class RouteResponse(
     @field:Schema(description = "보행/계단 속도 모델의 예상 소요 시간(초), 올림 정수", requiredMode = Schema.RequiredMode.REQUIRED) val durationSeconds: Long,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val additionalDurationSeconds: Long,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val metrics: RouteMetricsResponse = RouteMetricsResponse(),
+    @field:Schema(description = "출발 시각의 건물 그림자 평가 상태·커버리지·버전") val shadeEvaluation: ShadeEvaluationResponse? = null,
 )
 
 data class CoordinateResponse(val longitude: Double, val latitude: Double)
