@@ -53,6 +53,16 @@ curl -i http://localhost:8080/actuator/health/readiness
 
 정상 상태는 HTTP 200과 `{"status":"UP","checkedAt":"...Z"}`입니다. DB 연결 또는 공간 함수 호출에 실패하면 앱용 상태 API는 HTTP 503과 공통 JSON 오류 `SERVICE_UNAVAILABLE`을 반환합니다. Actuator health/readiness는 HTTP 503과 표준 `{"status":"DOWN"}`을 유지합니다. liveness는 DB 장애로 프로세스를 반복 재시작하지 않도록 DB를 검사하지 않습니다.
 
+## 서버 컨테이너와 AWS 인프라
+
+프로젝트 루트의 `Dockerfile`로 Java 21 서버 이미지를 빌드합니다. 빌드 단계의 JDK와 실행 단계의 JRE를 분리하고 non-root 사용자로 실행합니다. 기본 프로필은 `prod`이며 DB 설정을 외부에서 전달해야 합니다.
+
+```bash
+docker build -t igilro-server:local .
+```
+
+[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크와 ECR 기반 코드는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. ECS/RDS/ALB/HTTPS와 실제 배포는 후속 단계입니다.
+
 ## Flutter 연결 주소
 
 `API_BASE_URL`에는 `/api/v1` 없이 서버 origin만 지정합니다.

@@ -1,0 +1,14 @@
+# Allow only the files needed to build the application. Keep local data and secrets out.
+**
+!Dockerfile
+!.dockerignore
+!gradlew
+!build.gradle.kts
+!settings.gradle.kts
+!gradle
+!gradle/wrapper
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!src
+!src/main
+!src/main/**
