@@ -11,9 +11,11 @@ docker build -t igilro-server:local .
 - Temurin 21 JDK/JRE의 다중 아키텍처 manifest digest를 고정했습니다. 기본 이미지를 갱신할 때 새 digest와 Java 버전을 검증합니다.
 - 실행 사용자는 UID/GID `10001:10001`입니다. 서버는 stdout/stderr로 로그를 출력합니다.
 - `SPRING_PROFILES_ACTIVE=prod`, `TZ=UTC`가 기본값이며 `JAVA_TOOL_OPTIONS`로 JVM 옵션을 조정할 수 있습니다.
+- prod 앱의 Flyway 기본값은 비활성화입니다. 배포 전 동일 이미지의 일회성 비웹 작업에서 `SPRING_FLYWAY_ENABLED=true`로 실행합니다. 앱에는 읽기 전용 DB 계정을 사용합니다.
+- 서울 리전의 공개 RDS CA가 `/app/certs/rds-ca.pem`에 포함됩니다. RDS JDBC URL에 `sslmode=verify-full&sslrootcert=/app/certs/rds-ca.pem`을 사용합니다.
 - 이미지 메타데이터에는 앱 포트 8080만 노출합니다. `EXPOSE`는 실제 포트 공개 명령이 아니므로 배포 시 별도로 매핑합니다.
 - 운영 Actuator는 8081에서 동작합니다. ALB health check는 앱 포트의 `/api/v1/health`를 사용하고 8081은 외부에 공개하지 않습니다.
-- `.dockerignore`는 wrapper, 빌드 정의, `src/main`만 허용합니다. 로컬 DB 자료, `.env`, Git/IDE 설정과 테스트 fixture는 빌드 컨텍스트에 포함하지 않습니다.
+- `.dockerignore`는 wrapper, 빌드 정의, `src/main`, 공개 RDS CA만 허용합니다. 로컬 DB 자료, `.env`, Git/IDE 설정과 테스트 fixture는 빌드 컨텍스트에 포함하지 않습니다.
 - 이미지 빌드는 테스트와 분리한 패키징 단계입니다. CI는 기존 전체 테스트를 통과한 뒤 이미지를 빌드합니다.
 
 ## 로컬 PostGIS에 연결
@@ -22,6 +24,15 @@ docker build -t igilro-server:local .
 
 ```powershell
 docker compose up --build -d --wait
+# 먼저 같은 이미지로 일회성 migration을 실행합니다.
+docker run --rm --network igilro_default `
+  --env SPRING_PROFILES_ACTIVE=prod `
+  --env SPRING_MAIN_WEB_APPLICATION_TYPE=none `
+  --env SPRING_FLYWAY_ENABLED=true `
+  --env DB_URL=jdbc:postgresql://postgres:5432/igilro `
+  --env DB_USERNAME=igilro `
+  --env DB_PASSWORD=igilro_local `
+  igilro-server:local
 docker run --rm --name igilro-server-local `
   --network igilro_default `
   --publish 127.0.0.1:8080:8080 `
@@ -41,7 +52,7 @@ Invoke-RestMethod http://localhost:8080/api/v1/health
 docker exec igilro-server-local id
 ```
 
-DB와 공간 함수가 정상일 때 health는 HTTP 200과 `status: UP`입니다. Flyway가 최초 시작 시 마이그레이션을 적용합니다. 실제 OSM 그래프를 적재하기 전에는 경로 검색이 HTTP 503 `ROUTING_DATA_UNAVAILABLE`을 반환합니다.
+위 계정은 로컬 검증 전용입니다. 실제 RDS는 [인프라 초기화 절차](https://github.com/YunJaem06/igilro-infra/blob/main/docs/database-initialization.md)에 따라 관리자·migrator·앱 계정을 분리합니다. DB와 공간 함수가 정상일 때 health는 HTTP 200과 `status: UP`입니다. 실제 OSM 그래프 적재 전 경로 검색은 HTTP 503 `ROUTING_DATA_UNAVAILABLE`을 반환합니다.
 
 이미지의 prod 기본값으로 OpenAPI와 Swagger는 비활성화됩니다. 필요할 때 로컬에서만 `SPRING_PROFILES_ACTIVE=local`로 바꿀 수 있습니다. DB 설정은 동일하게 전달합니다.
 

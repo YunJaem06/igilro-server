@@ -61,7 +61,7 @@ curl -i http://localhost:8080/actuator/health/readiness
 docker build -t igilro-server:local .
 ```
 
-[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크와 ECR 기반 코드는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. ECS/RDS/ALB/HTTPS와 실제 배포는 후속 단계입니다.
+[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크·ECR·RDS와 PostGIS/계정 초기화 도구는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. prod 앱의 Flyway는 기본적으로 꺼져 있으며 동일 배포 아티팩트의 일회성 migration을 먼저 실행합니다. ECS/ALB/HTTPS와 실제 배포는 후속 단계입니다.
 
 ## Flutter 연결 주소
 
@@ -95,7 +95,7 @@ curl -i http://localhost:8080/api/v1/routes/search \
 
 ## DB와 Flyway 확인
 
-이미지에는 PostGIS 패키지만 설치합니다. **확장 생성은 서버 시작 시 Flyway의 `V1__enable_postgis.sql`이 수행합니다.** DB 컨테이너만 처음 실행한 시점에는 확장이 활성화되지 않은 것이 정상입니다.
+이미지에는 PostGIS 패키지만 설치합니다. local/dev는 서버 시작 시 Flyway V1이 확장을 만듭니다. prod RDS는 관리자가 PostGIS를 사전 설치하고 migrator 계정의 일회성 Flyway가 V1~V3를 적용합니다. DB 컨테이너만 처음 실행한 시점에는 확장이 활성화되지 않은 것이 정상입니다.
 
 서버 실행 후 아래 명령으로 확인합니다. `.env`에서 DB 이름·사용자를 바꾼 경우 SQL 명령의 인자도 변경합니다.
 
@@ -173,7 +173,7 @@ DB_USERNAME=igilro_app DB_PASSWORD=replace_with_secret \
 java -jar build/libs/igilro-server-0.0.1-SNAPSHOT.jar
 ```
 
-마이그레이션 계정에는 확장 생성 권한이 필요합니다. 운영 DB 관리자가 PostGIS를 미리 활성화하거나 `SPRING_FLYWAY_USER`, `SPRING_FLYWAY_PASSWORD`로 별도 마이그레이션 계정을 전달할 수 있습니다. 실제 운영 비밀은 저장소에 기록하지 않습니다. 기존 마이그레이션을 수정하지 않고 `V4__...sql`부터 추가하며, baseline과 Flyway clean은 자동 실행하지 않습니다. V3는 건물 그늘 자료와 공간 계산 함수를 추가합니다.
+prod의 자동 Flyway는 비활성화입니다. 운영 DB 관리자가 PostGIS를 사전 설치한 뒤 migration 작업에 `SPRING_FLYWAY_ENABLED=true`, `SPRING_MAIN_WEB_APPLICATION_TYPE=none`과 별도 migrator DB 계정을 전달합니다. 실제 운영 비밀은 Secrets Manager에서 주입합니다. [인프라 초기화 절차](https://github.com/YunJaem06/igilro-infra/blob/main/docs/database-initialization.md)를 참고합니다. 기존 migration은 수정하지 않고 V4부터 추가하며 baseline/clean을 자동 실행하지 않습니다.
 
 ## 설계와 후속 작업
 
