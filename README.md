@@ -61,7 +61,7 @@ curl -i http://localhost:8080/actuator/health/readiness
 docker build -t igilro-server:local .
 ```
 
-[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크·ECR·RDS와 PostGIS/계정 초기화 도구는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. prod 앱의 Flyway는 기본적으로 꺼져 있으며 동일 배포 아티팩트의 일회성 migration을 먼저 실행합니다. ECS/ALB/HTTPS와 실제 배포는 후속 단계입니다.
+[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크·ECR·RDS·ECS Fargate·ALB는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. prod 앱의 Flyway는 기본적으로 꺼져 있으며 동일 배포 아티팩트의 일회성 migration을 먼저 실행합니다. [배포 워크플로](.github/workflows/deploy.yml)는 OIDC 인증으로 이미지 발행 → 선택적 DB 초기화 → Flyway → 서비스 갱신 → health 검증을 수행합니다. [최초 적용과 GitHub 변수 설정](https://github.com/YunJaem06/igilro-infra/blob/main/docs/ecs-deployment.md)을 먼저 완료한 뒤 main에서 수동 실행합니다.
 
 ## Flutter 연결 주소
 

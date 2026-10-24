@@ -1,5 +1,7 @@
 # 서버 컨테이너
 
+AWS 배포는 `.github/workflows/deploy.yml`과 [인프라의 ECS 배포 절차](https://github.com/YunJaem06/igilro-infra/blob/main/docs/ecs-deployment.md)를 사용합니다. 수동 workflow의 publish는 이미지 발행만, deploy는 Flyway와 서비스 배포, initialize-and-deploy는 최초 DB 준비까지 수행합니다. 아래는 로컬 컨테이너 검증 절차입니다.
+
 루트 `Dockerfile`은 Java 21 JDK로 `bootJar`를 빌드한 뒤 JRE 이미지에 실행 JAR만 복사합니다. Docker 호스트에 Java나 Gradle을 설치하지 않아도 빌드할 수 있습니다.
 
 ```powershell
