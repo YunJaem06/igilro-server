@@ -1,0 +1,160 @@
+name: Deploy development server
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'publish: images only; deploy: migration and rollout; initialize-and-deploy: first DB setup too'
+        required: true
+        default: deploy
+        type: choice
+        options: [publish, deploy, initialize-and-deploy]
+
+permissions:
+  contents: read
+
+# Never cancel a running migration/rollout to start a newer one.
+concurrency:
+  group: server-deployment-dev
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    environment: dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INFRA_REF: ${{ vars.INFRA_REF }}
+      DEPLOYMENT_PARAMETER: ${{ vars.DEPLOYMENT_PARAMETER }}
+    steps:
+      - name: Require green CI and a pinned infrastructure revision
+        env:
+          SERVER_REPOSITORY: ${{ github.repository }}
+          SERVER_REVISION: ${{ github.sha }}
+          EXPECTED_AWS_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          DEPLOY_REGION: ${{ vars.AWS_REGION }}
+          DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          [[ "$INFRA_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_AWS_ACCOUNT" =~ ^[0-9]{12}$ ]]
+          test -n "$DEPLOY_REGION"
+          test -n "$DEPLOY_ROLE"
+          test -n "$DEPLOYMENT_PARAMETER"
+          conclusion=$(gh api "repos/$SERVER_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SERVER_REVISION&event=push" \
+            --jq '.workflow_runs | sort_by(.created_at) | last | .conclusion')
+          test "$conclusion" = success
+      - name: Checkout server
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Checkout pinned infrastructure tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: YunJaem06/igilro-infra
+          ref: ${{ env.INFRA_REF }}
+          path: .infra
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Assume deployment role with OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: igilro-publish-${{ github.run_id }}
+      - name: Publish or reuse immutable AMD64 images
+        env:
+          SERVER_REVISION: ${{ github.sha }}
+        run: |
+          python -m pip install -r .infra/scripts/requirements-database.txt
+          python .infra/scripts/deploy_service.py --operation publish \
+            --parameter "$DEPLOYMENT_PARAMETER" --server-revision "$SERVER_REVISION" --infra-revision "$INFRA_REF"
+
+  bootstrap:
+    needs: publish
+    if: inputs.operation == 'initialize-and-deploy'
+    environment: dev-bootstrap
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      INFRA_REF: ${{ vars.INFRA_REF }}
+      DEPLOYMENT_PARAMETER: ${{ vars.DEPLOYMENT_PARAMETER }}
+      SERVER_REVISION: ${{ github.sha }}
+    steps:
+      - name: Checkout pinned infrastructure tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: YunJaem06/igilro-infra
+          ref: ${{ env.INFRA_REF }}
+          path: .infra
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Assume separate bootstrap role with OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: igilro-bootstrap-${{ github.run_id }}
+      - name: Initialize PostGIS and role credentials inside the VPC
+        run: |
+          python -m pip install -r .infra/scripts/requirements-database.txt
+          python .infra/scripts/deploy_service.py --operation bootstrap \
+            --parameter "$DEPLOYMENT_PARAMETER" --server-revision "$SERVER_REVISION" --infra-revision "$INFRA_REF"
+
+  deploy:
+    needs: [publish, bootstrap]
+    if: >-
+      always() && !cancelled() && inputs.operation != 'publish' && needs.publish.result == 'success' &&
+      (needs.bootstrap.result == 'success' || needs.bootstrap.result == 'skipped')
+    environment: dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      INFRA_REF: ${{ vars.INFRA_REF }}
+      DEPLOYMENT_PARAMETER: ${{ vars.DEPLOYMENT_PARAMETER }}
+      SERVER_REVISION: ${{ github.sha }}
+    steps:
+      - name: Checkout pinned infrastructure tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: YunJaem06/igilro-infra
+          ref: ${{ env.INFRA_REF }}
+          path: .infra
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Assume deployment role with OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: igilro-deploy-${{ github.run_id }}
+      - name: Migrate, deploy and verify public health
+        run: |
+          python -m pip install -r .infra/scripts/requirements-database.txt
+          python .infra/scripts/deploy_service.py --operation deploy \
+            --parameter "$DEPLOYMENT_PARAMETER" --server-revision "$SERVER_REVISION" --infra-revision "$INFRA_REF"
