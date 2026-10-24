@@ -19,6 +19,7 @@ RUN groupadd --system --gid 10001 igilro && \
     useradd --system --uid 10001 --gid 10001 --home-dir /app --shell /usr/sbin/nologin igilro
 WORKDIR /app
 COPY --from=build --chown=10001:10001 /workspace/app.jar ./app.jar
+COPY --chown=10001:10001 docker/certs/rds-ca.crt ./certs/rds-ca.pem
 
 ENV SPRING_PROFILES_ACTIVE=prod \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0" \

@@ -12,3 +12,6 @@
 !src
 !src/main
 !src/main/**
+!docker
+!docker/certs
+!docker/certs/rds-ca.crt
