@@ -91,6 +91,12 @@ class ServerIntegrationTest {
     @Test
     fun `OpenAPI describes health and its 503 response and serves Swagger UI`() {
         mvc.perform(get("/v3/api-docs")).andExpect(status().isOk)
+            .andExpect(jsonPath("$.paths['/api/v1/places/search'].get.operationId").value("searchPlaces"))
+            .andExpect(jsonPath("$.paths['/api/v1/places/search'].get.parameters.length()").value(1))
+            .andExpect(jsonPath("$.paths['/api/v1/places/search'].get.parameters[0].name").value("query"))
+            .andExpect(jsonPath("$.paths['/api/v1/places/search'].get.parameters[0].required").value(true))
+            .andExpect(jsonPath("$.paths['/api/v1/places/search'].get.responses['429']").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/places/search'].get.responses['504']").exists())
             .andExpect(jsonPath("$.paths['/api/v1/health'].get.operationId").value("checkHealth"))
             .andExpect(jsonPath("$.paths['/api/v1/health'].get.responses['503']").exists())
             .andExpect(jsonPath("$.components.schemas.HealthResponse.properties.checkedAt.format").value("date-time"))

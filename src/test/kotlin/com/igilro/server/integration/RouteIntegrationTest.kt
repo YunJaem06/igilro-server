@@ -60,6 +60,18 @@ class RouteIntegrationTest {
     private fun request(body: String) = post("/api/v1/routes/search").contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON).content(body)
 
     @Test
+    fun `place search without a provider key does not disable coordinate based routes`() {
+        mvc.perform(get("/api/v1/places/search").param("query", "서울숲"))
+            .andExpect(status().isServiceUnavailable)
+            .andExpect(jsonPath("$.code").value("PLACE_SEARCH_NOT_CONFIGURED"))
+            .andExpect(jsonPath("$.requestId").isString)
+        mvc.perform(request(query())).andExpect(status().isOk)
+        mvc.perform(request(query(origin = "126.97,37.57")))
+            .andExpect(status().`is`(422))
+            .andExpect(jsonPath("$.code").value("OUTSIDE_SUPPORTED_AREA"))
+    }
+
+    @Test
     fun `real DB route uses mid-edge geometry metric units UTC and null environmental scores`() {
         val response = mvc.perform(request(query(extra = ",\"departureAt\":\"2026-10-10T14:00:00+09:00\"")))
             .andExpect(status().isOk)
