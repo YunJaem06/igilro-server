@@ -14,6 +14,12 @@ com.igilro.server
 │   ├── application      # CheckHealthUseCase
 │   ├── domain           # ServiceHealth, HealthStatus, HealthRepository 계약
 │   └── infrastructure   # JDBC 구현, Spring 조립, Actuator 어댑터
+├── route                # 그래프·경로·건물/그늘: 동일한 네 계층
+├── place
+│   ├── api              # 장소 Controller, 응답 DTO/Mapper, 공통 형식의 오류 변환
+│   ├── application      # SearchPlacesUseCase: 입력 정규화와 상한
+│   ├── domain           # PlaceSearchProvider, Place/좌표/출처와 실패 계약
+│   └── infrastructure   # Geoapify HTTP/DTO 변환, deadline, 요청 제한, Spring 조립
 └── shared
     ├── api              # 공통 오류 처리, 요청 식별자
     └── infrastructure   # Clock, OpenAPI 설정
@@ -23,7 +29,7 @@ com.igilro.server
 
 `HealthRepository`는 공간 DB의 사용 가능 여부를 읽는 계약입니다. JDBC SQL, 연결 예외와 Spring의 세부 사항은 구현에만 있습니다. 예상되는 연결·공간 함수 오류는 `false`로 변환되어 HTTP 503을 만들고, 예상하지 못한 프로그램 오류는 공통 500 응답으로 처리됩니다. UseCase는 상태를 확인하고 확인 시각을 정하는 하나의 동작을 수행합니다.
 
-Domain과 Application은 Spring, JDBC, Jakarta Validation, Jackson과 Swagger에 의존하지 않습니다. Kotlin 및 JDK의 `Instant`/`Clock`만 사용합니다. `Clock`을 주입해 시간에 의존하는 테스트를 재현할 수 있게 했습니다. Spring Bean 조립은 infrastructure에 둡니다.
+Domain과 Application은 Spring, JDBC, Jakarta Validation, Jackson과 Swagger에 의존하지 않습니다. Kotlin/JDK만 사용합니다. `Clock`을 주입해 시간에 의존하는 테스트를 재현할 수 있게 했습니다. Spring Bean 조립은 infrastructure에 둡니다.
 
 새 기능은 `route/api`, `route/application`, `route/domain`, `route/infrastructure`처럼 해당 기능 아래 추가합니다. 실제 영속화 요구가 생기면 그 기능의 domain에 Repository 계약을 만들고 infrastructure에 구현합니다. UseCase 전용 외부 조회·계산 계약은 application에 둘 수 있습니다. 기술만 공유하는 이유로 기능 모델을 shared로 이동하지 않습니다.
 
@@ -67,3 +73,11 @@ route feature에 검색·적재 UseCase, 순수 Kotlin의 좌표·그래프·Dij
 route/domain/shade에 순수 Kotlin의 태양 위치·평가 상태·건물 입력 모델을, application에 RouteShadeEvaluator 계약과 건물 적재 UseCase를 둡니다. infrastructure/shade가 GeoJSON을 Domain 도형으로 변환하고 JDBC/PostGIS 계산·트랜잭션·CLI를 담당합니다. Domain은 GeoJSON/WKT·Spring·JDBC를 참조하지 않습니다.
 
 검색 UseCase가 실제 계산된 경로 좌표와 동일한 evaluatedAt을 evaluator에 전달하고 API Mapper가 shadeRatio와 평가 메타데이터를 응답으로 변환합니다. 환경 자료가 없거나 공간 조회가 실패하면 null과 상태를 반환해 fastest 경로의 가용성을 유지합니다. 건물 자료는 그래프와 별도 버전으로 활성화하며, [Phase 3 문서](phase-3-shade.md)에 모델·커버리지·출처 표시 계약을 명시합니다.
+
+## 장소 검색
+
+`PlaceController → SearchPlacesUseCase → PlaceSearchProvider`로 요청합니다. UseCase는 공백·입력 상한을 처리하고 domain 계약을 호출합니다. Geoapify adapter는 API/Domain과 분리된 공급자 DTO를 읽고 WGS84 값과 출처로 변환합니다. place는 route 모델을 참조하지 않으며 경로 입력은 좌표만 유지합니다.
+
+HTTP 구현은 Java 21 HttpClient로 연결 timeout·전체 응답 deadline·redirect 차단·256 KiB body 상한을 제어합니다. 원본 URI/공급자 예외에는 키와 검색어가 포함될 수 있으므로 공급자 실패는 원본 cause 없이 안정적인 Domain 사유로 변환합니다. 단일 프로세스의 monotonic 요청 제한도 외부 호출 adapter 경계에 둡니다. 새로운 DB 테이블, 결과 캐시, 서버 debounce는 없습니다. 키가 비어 있어도 Bean을 조립하며 장소 요청 시에만 미준비 오류를 반환합니다.
+
+`PlaceExceptionHandler`는 기존 `ApiErrorResponder`와 requestId 필터를 재사용합니다. `attributions`는 공급자별 출처를 앱까지 보존하기 위한 비필수 응답 확장입니다. 공급자 정책과 선택 이유, 분산 quota·실검색 검증의 한계는 [장소 검색](place-search.md)에 정리했습니다.

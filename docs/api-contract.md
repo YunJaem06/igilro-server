@@ -10,6 +10,14 @@ DTO 연동용 [요청 JSON](examples/route-search-fixture-request.json), [건물
 
 Flutter는 지도 선택·현재 위치로 준비한 WGS84 좌표를 경로 요청의 origin/destination에 직접 전달할 수 있습니다. 장소명·주소·공급자 ID는 현재 경로 요청에 필요하지 않으며 장소 검색 API 구현을 기다리지 않아도 됩니다. JSON 요청에는 정의된 필드만 전달합니다. 최신 Flutter 상태와 서버의 반영 현황은 [전달 내용 검토](flutter-handoff-review.md)를 참고합니다.
 
+## 장소명·주소 검색
+
+`GET /api/v1/places/search?query=서울숲`을 구현했습니다. 필수 파라미터는 `query` 하나이며 정규화 후 1~100 Unicode 문자, 최대 후보 10개입니다. 성공의 `places[]`는 `id`, `name`, 빈 문자열을 허용하는 `address`, WGS84 숫자의 `coordinate.longitude/latitude`입니다. `id`에는 `geoapify:` 접두사가 있으며 opaque 값입니다. 결과가 없으면 정확히 `200 {"places":[]}`를 반환합니다.
+
+결과가 있을 때 출처 표시를 위한 비필수 `attributions: [{text, url}]`을 추가합니다. `url`은 없으면 null입니다. 앱은 출처를 선택 상태와 함께 보관·표시합니다. 공급자 장애·미준비·429·timeout·잘못된 응답은 성공의 빈 배열로 처리하지 않습니다. 키 미설정은 503 `PLACE_SEARCH_NOT_CONFIGURED`, 공급자 인증 실패는 앱 사용자 401 대신 503입니다. 전체 매핑·제한·출처 조건은 [장소 검색 계약](place-search.md)에 명시했습니다.
+
+장소 검색은 대한민국, 경로 검색은 기존 서울숲 pilot입니다. 경로 입력은 좌표만 유지하며 `OUTSIDE_SUPPORTED_AREA` 처리를 변경하지 않습니다.
+
 ## 상태 확인
 
 `GET /api/v1/health`는 PostgreSQL 연결과 PostGIS 공간 함수 호출에 성공하면 HTTP 200을 반환합니다.
@@ -50,7 +58,7 @@ Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type:
 | 405 | `METHOD_NOT_ALLOWED` | 지원하지 않는 HTTP 메서드; Allow 헤더 유지 |
 | 406 | `NOT_ACCEPTABLE` | 지원하지 않는 응답 형식 |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | 지원하지 않는 본문 형식 |
-| 429 | `TOO_MANY_REQUESTS` | HTTP 429에 대한 공통 매핑. 실제 요청 제한 기능은 미구현 |
+| 429 | `TOO_MANY_REQUESTS` | 공통 매핑. 장소 검색에는 실제 프로세스별 요청 제한·공급자 429 변환 적용 |
 | 500 | `INTERNAL_SERVER_ERROR` | 예상하지 못한 서버 오류 |
 | 503 | `SERVICE_UNAVAILABLE` | 현재 상태 API에서 공간 DB 사용 불가 |
 
@@ -68,7 +76,7 @@ Phase 2 경로 검색은 아래 업무 코드를 구현했습니다. 요청 제�
 | 429 | `TOO_MANY_REQUESTS` | 요청 제한 도입 시 적용, 재시도 가능 시 Retry-After 제공 |
 | 503 | `ROUTING_DATA_UNAVAILABLE` | 경로 그래프·필수 경로 데이터 준비되지 않음 |
 
-모르는 URL의 404 `NOT_FOUND`와 실제 검색 실패인 404 `ROUTE_NOT_FOUND`를 구분합니다. 지원 지역 안에서 최대 50m의 후보 보행 구간에 연결하지 못하거나 경로가 없으면 ROUTE_NOT_FOUND입니다. 지역은 [Phase 2 문서](phase-2-routing.md)의 서울숲 pilot입니다. 장소 검색은 다음 단계이며 빈 결과를 200 `places: []`로 표현할 제안을 유지합니다.
+모르는 URL의 404 `NOT_FOUND`와 실제 검색 실패인 404 `ROUTE_NOT_FOUND`를 구분합니다. 지원 지역 안에서 최대 50m의 후보 보행 구간에 연결하지 못하거나 경로가 없으면 ROUTE_NOT_FOUND입니다. 지역은 [Phase 2 문서](phase-2-routing.md)의 서울숲 pilot입니다. 장소 검색의 빈 결과는 별개 계약인 200 `places: []`입니다.
 
 ## 경로 좌표·단위·시각 규칙
 

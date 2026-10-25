@@ -1,20 +1,20 @@
 # Flutter 서버 전달 내용 반영 현황
 
-참고 문서: Flutter 프로젝트의 `docs/server_handoff.md`와 2026-10-19에 전달받은 최신 Flutter 상태. 서버 Phase 1 기반과 Phase 2의 실제 fastest 경로 검색, Phase 3의 기존 경로 그늘 평가가 구현되어 있습니다. 이 문서는 최신 전달 내용에 대한 구현 현황과 앱 연동 사항을 정리합니다. 장소 검색은 아직 제안입니다.
+참고 문서: Flutter 프로젝트의 `docs/server_handoff.md`(2026-10-24 장소 검색 클라이언트 반영)와 2026-10-25 장소 검색 서버 요청. 서버는 기반·fastest 경로·건물 그늘 평가에 더해 장소 검색 API를 구현했습니다. 최신 실행·검증 결과는 [장소 검색](place-search.md), [검증 기록](place-search-verification.md)을 참고합니다. 아래의 날짜가 붙은 이전 환경 기록은 당시 검증 근거로 보존합니다.
 
 ## Flutter 현재 상태와 바로 연결할 흐름
 
 - Flutter/Dart, Riverpod, go_router, Dio, Freezed/json_serializable을 사용합니다.
-- Mapbox 지도와 현재 위치, 출발지/도착지 지도 선택, 핀 표시·교환·삭제가 구현되어 있습니다. 아직 서버 API는 호출하지 않습니다.
-- 선택값은 WGS84 좌표이며 장소명·주소·공급자 ID는 없습니다. 현재 경로 API는 좌표만 받으므로 이 값들을 추가하지 않아도 호출할 수 있습니다. 장소 검색은 경로 API 연결의 선행 조건이 아닙니다.
+- Mapbox 지도와 현재 위치, 출발지/도착지 선택과 핀, fastest 경로 API 호출 및 장소 검색 화면·API 클라이언트가 구현되어 있습니다. 기존 장소 endpoint 404는 이번 서버 구현으로 해소합니다.
+- 선택값은 장소명·주소·공급자 ID와 WGS84 좌표입니다. 경로 API는 기존처럼 좌표만 받습니다. 새 장소 응답의 비필수 `attributions`는 선택 상태와 함께 보존하고 목록·핀 화면에 표시해야 합니다.
 - `API_BASE_URL`은 `/api/v1`이 없는 서버 origin입니다. development/staging/production은 서버 local/dev/prod에 대응하며 개발 외에는 HTTPS origin을 사용합니다.
 - 요청/응답은 `application/json`이며 연결·송신 10초, 수신 30초를 기준으로 합니다. 서버의 로컬 측정 기록은 아래 경로 계약과 [Phase 2 검증 기록](phase-2-verification.md)을 참고합니다.
 
-다음 연결 순서는 **Java 21·Docker 준비 → 실제 그래프 적재 → health 확인 → Flutter의 지도 선택 좌표로 fastest 요청 → 경로·오류 표시 검증**입니다. 앱이 서버 응답의 `snapping`을 이용해 실제 경로 끝점과 입력 핀 사이의 차이를 표시하고 OSM attribution을 표시해야 합니다. Phase 3에서 그늘 평가를 추가했으며 실제 건물 자료 준비와 장소 검색 공급자 선정은 후속 작업입니다.
+다음 연결 순서는 **Geoapify 서버 키 설정 → 장소명/주소 실검색 → 출처 표시와 선택 좌표 핀 확인 → 기존 좌표 기반 fastest 요청**입니다. 장소 검색은 대한민국, 경로는 서울숲 pilot로 구분하고 `OUTSIDE_SUPPORTED_AREA` 안내를 유지합니다. 실제 건물 자료 준비와 환경 경로 최적화는 후속 작업입니다.
 
 ## Flutter 아키텍처에 맞춘 경로 API 연결
 
-2026-10-19에 추가로 전달받은 Flutter 아키텍처에 따르면 좌표 선택 Domain/Notifier와 지도 핀은 구현되어 있고, 서버 검색용 UseCase·Repository·DataSource와 응답 DTO/Mapper는 후속 작업입니다. 좌표 입력 준비와 서버 검색 구현의 완료 여부를 구분합니다. 아래 내용은 Flutter의 다음 구현 범위이며, 이 서버 저장소에서 Flutter 코드를 변경한 것은 아닙니다.
+아래는 2026-10-19에 전달한 Flutter 구현 지침입니다. 2026-10-24 전달 문서에서는 경로 연결과 장소 검색 클라이언트가 구현된 것으로 갱신되었습니다. 아래 계층·취소·오류 보존 규칙을 유지하며 새 출처 표시를 반영합니다. 이번 서버 작업에서 Flutter 코드를 변경하지는 않았습니다.
 
 - 검색은 View → AsyncNotifier → UseCase → Repository interface → Data 구현체 → DataSource → DioClient 순서로 연결합니다. JSON은 DTO → Mapper → 순수 Domain 값으로 변환하고 Domain에 Dio·Mapbox·DTO를 노출하지 않습니다.
 - 기능이 정의한 Domain 타입의 의존성 계약에 `app/di`가 구현체를 주입합니다. 입력 선택 상태와 비동기 검색 결과 상태는 분리하고 AsyncValue의 로딩·오류를 별도 State 필드로 중복하지 않습니다.
@@ -44,11 +44,13 @@
 
 실행·환경 변수·포트는 [README](../README.md), 최종 오류 예시와 HTTP/code 표는 [API 계약](api-contract.md)을 참고합니다. 이전 RFC 9457 오류 응답은 Flutter 전달 계약을 반영하면서 교체했습니다.
 
-## 장소 검색 제안
+## 장소 검색 구현
 
-`GET /api/v1/places/search?query=서울숲`과 `places[]` 응답 형식을 수용합니다. 공급자 이름을 포함한 opaque `id`, 장소명·주소와 `{longitude, latitude}`를 API DTO로 제공하고 공급자 응답 변환은 infrastructure adapter에서 담당합니다.
+`GET /api/v1/places/search?query=서울숲`과 `places[]` 형식으로 구현했습니다. 필수 요청 파라미터는 query 하나입니다. `id=geoapify:<opaque place_id>`, 비공백 name, 없으면 빈 문자열인 address, 유한 숫자의 WGS84 `{longitude, latitude}`를 반환합니다. 공급자 HTTP/DTO는 infrastructure, 입력 처리는 UseCase, 앱 응답 Mapper는 api에 분리했습니다.
 
-빈 검색 결과는 HTTP 200 `places: []`, 빈 문자열·형식 오류는 HTTP 400 `INVALID_REQUEST`로 처리하는 방향입니다. 페이지네이션, 검색 길이 제한, 후보 수, 공급자 장애 코드, 캐시와 위치·표시 약관은 공급자 선정 후 확정합니다. 지도 렌더링 공급자와 검색 공급자를 같은 것으로 가정하지 않습니다.
+빈 결과는 정확히 HTTP 200 `{"places":[]}`, 누락·공백·길이 오류는 400 `INVALID_REQUEST`입니다. 정규화 후 100 Unicode 문자, 최대 후보 10개, 기본 전체 외부 응답 deadline 3초입니다. 키 미설정/공급자 인증은 503, timeout은 504, 잘못된 응답/전송 장애는 502, 요청 제한은 429와 기존 최상위 code/requestId 계약입니다. 서버는 결과를 캐시·저장하지 않습니다.
+
+출처 표시용 선택 응답 필드 `attributions: [{text, url}]`를 추가합니다. 결과가 있을 때만 제공하며 url은 null일 수 있습니다. Flutter는 이를 결과/선택 장소와 함께 보존하고 Geoapify 링크·OSM·공급자별 추가 출처를 표시해야 합니다. Mapbox 토큰은 이 검색에 사용하지 않습니다. 발급/실행·정책·오류 표는 [장소 검색](place-search.md)에 확정했습니다. 실제 키가 없어 실검색 성공과 국내 품질 확인은 남아 있습니다.
 
 ## 경로 검색 구현 계약
 
@@ -71,7 +73,7 @@
 
 요청에는 origin/destination 좌표, travelMode, mode, departureAt만 전달합니다. 장소명·주소·공급자 ID 등 정의되지 않은 요청 필드는 400 `INVALID_REQUEST`입니다. 정확한 응답과 오류 표는 [API 계약](api-contract.md), 실행·데이터 준비 방법은 [Phase 2 문서](phase-2-routing.md)를 따릅니다.
 
-업무 오류의 400 `INVALID_ROUTE_QUERY`, 422 `OUTSIDE_SUPPORTED_AREA`, 404 `ROUTE_NOT_FOUND`, 503 `ROUTING_DATA_UNAVAILABLE` 제안은 수용합니다. 문법·타입 오류는 공통 `INVALID_REQUEST`, 미구현 URL은 `NOT_FOUND`로 구분합니다. graph가 준비되지 않은 상태를 경로 없음으로 숨기지 않습니다. 인증·요청 제한 기능 자체는 아직 도입하지 않았습니다.
+업무 오류의 400 `INVALID_ROUTE_QUERY`, 422 `OUTSIDE_SUPPORTED_AREA`, 404 `ROUTE_NOT_FOUND`, 503 `ROUTING_DATA_UNAVAILABLE` 제안은 수용합니다. 문법·타입 오류는 공통 `INVALID_REQUEST`, 미구현 URL은 `NOT_FOUND`로 구분합니다. graph가 준비되지 않은 상태를 경로 없음으로 숨기지 않습니다. 인증과 경로 요청 제한은 후속 범위이며 장소 검색에는 프로세스별 제한을 적용했습니다.
 
 ## 첫 지역·데이터 현황과 환경 계산 계획
 

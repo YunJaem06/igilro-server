@@ -1,6 +1,6 @@
 # 이길로 서버
 
-사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 Phase 2의 실제 OSM 보행 그래프 적재·snapping·fastest 경로 API와 Phase 3의 건물 자료 적재·fastest 경로 그늘 평가를 구현했습니다. 장소 검색과 그늘 우선 경로 최적화는 다음 단계입니다.
+사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 실제 OSM 보행 그래프 적재·fastest 경로, 건물 자료 적재·기존 경로의 그늘 평가와 Geoapify 기반 한국 장소명·주소 검색을 구현했습니다. 그늘 우선 경로 최적화는 다음 단계입니다.
 
 ## 기술 구성
 
@@ -39,6 +39,7 @@ DB_USERNAME=igilro DB_PASSWORD=local_custom_password \
 | 확인 항목 | 주소 |
 | --- | --- |
 | 실제 도보 경로 검색 | `POST http://localhost:8080/api/v1/routes/search` |
+| 한국 장소명·주소 검색 | `GET http://localhost:8080/api/v1/places/search?query=서울숲` |
 | 서비스 및 공간 DB 상태 | `GET http://localhost:8080/api/v1/health` |
 | 종합 상태 | `GET http://localhost:8080/actuator/health` |
 | 프로세스 생존 | `GET http://localhost:8080/actuator/health/liveness` |
@@ -52,6 +53,29 @@ curl -i http://localhost:8080/actuator/health/readiness
 ```
 
 정상 상태는 HTTP 200과 `{"status":"UP","checkedAt":"...Z"}`입니다. DB 연결 또는 공간 함수 호출에 실패하면 앱용 상태 API는 HTTP 503과 공통 JSON 오류 `SERVICE_UNAVAILABLE`을 반환합니다. Actuator health/readiness는 HTTP 503과 표준 `{"status":"DOWN"}`을 유지합니다. liveness는 DB 장애로 프로세스를 반복 재시작하지 않도록 DB를 검사하지 않습니다.
+
+## 장소명·주소 검색
+
+`GET /api/v1/places/search`는 `query`만 받습니다. Geoapify Geocoding API의 대한민국 검색 결과를 최대 10개 반환하고 결과 없음은 `200 {"places":[]}`입니다. 기존 경로 지원 범위는 서울숲 pilot이며 장소 검색 범위와 별개입니다. 경로 API에는 기존 좌표만 전달합니다.
+
+[Geoapify MyProjects](https://myprojects.geoapify.com/)에서 프로젝트 → API Keys로 서버 키를 발급하고 `.env.example`의 `GEOAPIFY_API_KEY`를 설정합니다. Mapbox 공개 토큰과 별도입니다. 실제 키는 `.env`/프로세스 환경에만 보관합니다. 키가 없어도 서버·경로 API는 동작하며 장소 요청만 `503 PLACE_SEARCH_NOT_CONFIGURED`를 반환합니다.
+
+```sh
+# .env에 GEOAPIFY_API_KEY를 추가한 뒤 서버 프로세스로 export합니다.
+set -a
+source .env
+set +a
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+```sh
+curl --get --include 'http://localhost:8080/api/v1/places/search' \
+  --header 'Accept: application/json' --data-urlencode 'query=서울숲'
+```
+
+기본 `PLACES_CONNECT_TIMEOUT=2s`, `PLACES_RESPONSE_TIMEOUT=3s`, `PLACES_REQUESTS_PER_SECOND=4`입니다. 검색어는 공백 정규화 후 1~100 Unicode 문자, 원본은 1,024 UTF-16 단위 이하입니다. 프로세스별 250ms 요청 간격 제한은 429를 반환하며 복제 수와 공급자 프로젝트의 전체 quota를 함께 고려해야 합니다.
+
+Flutter는 비필수 응답 필드 `attributions`를 보존하고 검색 목록과 선택 장소 화면에 Geoapify·OSM 및 실제 데이터 출처/링크를 표시해야 합니다. [공급자 선정·요금/저장 조건·전체 오류 코드·실행 방법](docs/place-search.md), [검증 결과](docs/place-search-verification.md)를 참고합니다. 실제 키가 없어 공급자 실검색 성공/국내 품질 검증은 아직 수행하지 않았습니다.
 
 ## 서버 컨테이너와 AWS 인프라
 
@@ -164,7 +188,7 @@ GitHub Actions는 Java 21 환경에서 같은 Dockerfile을 빌드하고 `clean 
 | `prod` | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` 필수 | 비활성화 | 관리 포트 8081, health만 |
 | `test` | Testcontainers가 동적 주입 | 활성화 | 테스트 컨텍스트 |
 
-배포 환경에서는 `SPRING_PROFILES_ACTIVE=prod`를 명시합니다. 설정이 누락된 `dev`/`prod`는 시작에 실패합니다. `SERVER_PORT`, `MANAGEMENT_SERVER_PORT`로 포트를 변경할 수 있습니다. 운영 관리 포트는 내부 네트워크에서만 접근하도록 배포 환경에서 제한합니다. 서버 인증과 운영 배포 자동화는 다음 단계의 별도 작업입니다.
+배포 환경에서는 `SPRING_PROFILES_ACTIVE=prod`를 명시합니다. DB 설정이 누락된 `dev`/`prod`는 시작에 실패합니다. `SERVER_PORT`, `MANAGEMENT_SERVER_PORT`로 포트를 변경할 수 있습니다. 운영 관리 포트는 내부 네트워크에서만 접근하도록 배포 환경에서 제한합니다. 서버 인증·인가는 후속 작업이며 AWS 수동 배포 워크플로는 인프라 설정 후 사용합니다.
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \
@@ -185,4 +209,4 @@ prod의 자동 Flyway는 비활성화입니다. 운영 DB 관리자가 PostGIS�
 - [Phase 3 건물 자료·그늘 평가](docs/phase-3-shade.md)
 - [초기 분석·변경 내역·검증 결과](docs/phase-1-verification.md)
 
-다음 단계는 보행 데이터 품질 보완과 장소 검색, Flutter 실제 경로 연결, 실제 건물·높이 자료 수급과 현장 검증, 그늘 우선 경로와 기타 환경 점수·복수 조건 가중치입니다. 미지원 기능의 빈 API나 샘플 성공 응답은 만들지 않습니다.
+다음 단계는 장소 공급자 키/국내 품질 및 Flutter 출처 표시 검증, 보행 데이터 품질 보완, 실제 건물·높이 자료 수급과 현장 검증, 그늘 우선 경로와 기타 환경 점수·복수 조건 가중치입니다. 미지원 기능의 빈 API나 샘플 성공 응답은 만들지 않습니다.
