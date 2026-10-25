@@ -55,3 +55,10 @@ springdoc:
 logging:
   pattern:
     level: "%5p [requestId:%X{requestId:-}]"
+
+igilro:
+  places:
+    api-key: ${GEOAPIFY_API_KEY:}
+    connect-timeout: ${PLACES_CONNECT_TIMEOUT:2s}
+    response-timeout: ${PLACES_RESPONSE_TIMEOUT:3s}
+    requests-per-second: ${PLACES_REQUESTS_PER_SECOND:4}
