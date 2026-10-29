@@ -33,7 +33,7 @@ class PlaceSearchConfiguration {
         HttpClient.newBuilder().connectTimeout(properties.connectTimeout).followRedirects(HttpClient.Redirect.NEVER).build()
 
     @Bean
-    fun placeSearchProvider(properties: PlaceSearchProperties, @Qualifier("placeSearchHttpClient") client: HttpClient): PlaceSearchProvider = GeoapifyPlaceSearchProvider(
+    fun placeSearchProvider(properties: PlaceSearchProperties, @Qualifier("placeSearchHttpClient") client: HttpClient): PlaceSearchProvider = KakaoPlaceSearchProvider(
         properties,
         client,
         PlaceSearchRateLimiter(properties.requestsPerSecond),

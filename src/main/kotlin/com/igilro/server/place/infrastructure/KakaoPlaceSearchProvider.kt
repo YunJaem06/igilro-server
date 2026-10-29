@@ -17,11 +17,11 @@ import java.util.concurrent.Flow
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
-class GeoapifyPlaceSearchProvider(
+class KakaoPlaceSearchProvider(
     private val properties: PlaceSearchProperties,
     private val client: HttpClient,
     private val limiter: PlaceSearchRateLimiter,
-    private val endpoint: URI = URI("https://api.geoapify.com/v1/geocode/search"),
+    private val endpoint: URI = URI("https://dapi.kakao.com"),
 ) : PlaceSearchProvider {
     private val mapper = JsonMapper.builder().build()
 
@@ -29,17 +29,29 @@ class GeoapifyPlaceSearchProvider(
         val key = properties.apiKey.trim()
         if (key.isEmpty() || key.any(Char::isWhitespace) || key.any(Char::isISOControl)) fail(PlaceSearchFailureReason.NOT_CONFIGURED)
         limiter.acquire()
-        val params = linkedMapOf("text" to query, "format" to "json", "filter" to "countrycode:kr",
-            "bias" to "countrycode:none", "lang" to "ko", "limit" to limit.toString(), "apiKey" to key)
-        val uri = URI(endpoint.toString() + "?" + params.entries.joinToString("&") { (name, value) ->
+        val deadline = System.nanoTime() + properties.responseTimeout.toNanos()
+        val keywords = fetch(query, limit, key, deadline, address = false)
+        val places = if (keywords.isNotEmpty()) keywords else fetch(query, limit, key, deadline, address = true)
+        return PlaceSearchResult(places, if (places.isEmpty()) emptyList() else listOf(
+            PlaceAttribution("장소 정보: 카카오맵", "https://map.kakao.com/"),
+        ))
+    }
+
+    private fun fetch(query: String, limit: Int, key: String, deadline: Long, address: Boolean): List<Place> {
+        val remaining = deadline - System.nanoTime()
+        if (remaining <= 0) fail(PlaceSearchFailureReason.TIMEOUT)
+        val params = linkedMapOf("query" to query, "size" to limit.toString(), "page" to "1")
+        val path = if (address) "/v2/local/search/address.json" else "/v2/local/search/keyword.json"
+        val uri = URI(endpoint.resolve(path).toString() + "?" + params.entries.joinToString("&") { (name, value) ->
             "$name=${URLEncoder.encode(value, StandardCharsets.UTF_8)}"
         })
-        val request = HttpRequest.newBuilder(uri).timeout(properties.responseTimeout)
+        val request = HttpRequest.newBuilder(uri).timeout(java.time.Duration.ofNanos(remaining))
+            .header("Authorization", "KakaoAK $key")
             .header("Accept", "application/json").header("User-Agent", "igilro-server/place-search").GET().build()
         val pending = client.sendAsync(request, HttpResponse.BodyHandler { LimitedBodySubscriber() })
         val response = try {
             // Completion includes the entire body, so slow body delivery is bounded too.
-            pending.get(properties.responseTimeout.toMillis(), TimeUnit.MILLISECONDS)
+            pending.get(remaining, TimeUnit.NANOSECONDS)
         } catch (_: TimeoutException) {
             pending.cancel(true)
             fail(PlaceSearchFailureReason.TIMEOUT)
@@ -67,17 +79,8 @@ class GeoapifyPlaceSearchProvider(
             fail(PlaceSearchFailureReason.BAD_RESPONSE)
         }
         return try {
-            val data = GeoapifyResponse.fromJson(mapper.readTree(response.body()), limit)
-            val places = data.results.map { item ->
-                val name = sequenceOf(item.name, item.addressLine1, item.formatted).filterNotNull().firstOrNull { it.isNotBlank() }?.trim()
-                    ?: fail(PlaceSearchFailureReason.BAD_RESPONSE)
-                Place("geoapify:${item.placeId}", name, item.formatted?.trim().orEmpty(), PlaceCoordinate(item.longitude, item.latitude))
-            }.distinctBy { it.id }
-            val attributions = if (places.isEmpty()) emptyList() else (listOf(
-                PlaceAttribution("Powered by Geoapify", "https://www.geoapify.com/"),
-                PlaceAttribution("© OpenStreetMap contributors", "https://www.openstreetmap.org/copyright"),
-            ) + data.results.mapNotNull { it.attribution?.let { source -> PlaceAttribution(source.text, source.url) } }).distinct()
-            PlaceSearchResult(places, attributions)
+            KakaoPlaceSearchResponse.fromJson(mapper.readTree(response.body()), limit, address)
+                .places.map { Place(it.id, it.name, it.address, PlaceCoordinate(it.longitude, it.latitude)) }.distinctBy { it.id }
         } catch (failure: PlaceSearchFailure) {
             throw failure
         } catch (_: RuntimeException) {

@@ -58,7 +58,7 @@ logging:
 
 igilro:
   places:
-    api-key: ${GEOAPIFY_API_KEY:}
+    api-key: ${KAKAO_REST_API_KEY:}
     connect-timeout: ${PLACES_CONNECT_TIMEOUT:2s}
     response-timeout: ${PLACES_RESPONSE_TIMEOUT:3s}
     requests-per-second: ${PLACES_REQUESTS_PER_SECOND:4}

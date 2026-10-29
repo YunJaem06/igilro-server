@@ -18,11 +18,13 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.*
 
-class GeoapifyPlaceSearchProviderTest {
+class KakaoPlaceSearchProviderTest {
     private lateinit var server: HttpServer
     private lateinit var client: HttpClient
     private val workers = Executors.newCachedThreadPool { task -> Thread(task).apply { isDaemon = true } }
     private val recorded = AtomicReference<URI>()
+    private val authorization = AtomicReference<String>()
+    private val paths = java.util.concurrent.CopyOnWriteArrayList<String>()
     private val requests = AtomicInteger()
     @Volatile private var handler: (HttpExchange) -> Unit = { respond(it, 200, SUCCESS) }
 
@@ -30,8 +32,10 @@ class GeoapifyPlaceSearchProviderTest {
     fun start() {
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.executor = workers
-        server.createContext("/search") { exchange ->
+        server.createContext("/v2/local/search/") { exchange ->
             recorded.set(exchange.requestURI)
+            authorization.set(exchange.requestHeaders.getFirst("Authorization"))
+            paths.add(exchange.requestURI.path)
             requests.incrementAndGet()
             try { handler(exchange) } catch (_: java.io.IOException) { } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
             finally { exchange.close() }
@@ -47,10 +51,10 @@ class GeoapifyPlaceSearchProviderTest {
         client.close()
     }
 
-    private fun provider(key: String = FAKE_KEY, timeout: Duration = Duration.ofSeconds(2), limiter: PlaceSearchRateLimiter? = null): GeoapifyPlaceSearchProvider {
+    private fun provider(key: String = FAKE_KEY, timeout: Duration = Duration.ofSeconds(2), limiter: PlaceSearchRateLimiter? = null): KakaoPlaceSearchProvider {
         val ticker = AtomicLong()
-        return GeoapifyPlaceSearchProvider(PlaceSearchProperties(key, Duration.ofMillis(250), timeout), client,
-            limiter ?: PlaceSearchRateLimiter(4) { ticker.getAndAdd(1_000_000_000) }, URI("http://127.0.0.1:${server.address.port}/search"))
+        return KakaoPlaceSearchProvider(PlaceSearchProperties(key, Duration.ofMillis(250), timeout), client,
+            limiter ?: PlaceSearchRateLimiter(4) { ticker.getAndAdd(1_000_000_000) }, URI("http://127.0.0.1:${server.address.port}"))
     }
 
     private fun respond(exchange: HttpExchange, status: Int, body: String, type: String = "application/json") {
@@ -68,50 +72,71 @@ class GeoapifyPlaceSearchProviderTest {
             val parts = pair.split('=', limit = 2)
             parts[0] to URLDecoder.decode(parts[1], Charsets.UTF_8)
         }
-        assertEquals(query, params["text"])
-        assertEquals(FAKE_KEY, params["apiKey"])
-        assertEquals("countrycode:kr", params["filter"])
-        assertEquals("countrycode:none", params["bias"])
-        assertEquals("ko", params["lang"])
-        assertEquals("10", params["limit"])
-        assertEquals(7, params.size)
+        assertEquals(query, params["query"])
+        assertEquals("KakaoAK $FAKE_KEY", authorization.get())
+        assertFalse(recorded.get().toString().contains(FAKE_KEY))
+        assertEquals("10", params["size"])
+        assertEquals("1", params["page"])
+        assertEquals(3, params.size)
+        assertEquals(listOf("/v2/local/search/keyword.json"), paths.toList())
     }
 
     @Test
     fun `maps supplier fields numeric strings and provenance to independent domain values`() {
         val result = provider().search("서울숲", 10)
         val place = result.places.single()
-        assertEquals("geoapify:fixture-1", place.id)
+        assertEquals("kakao:place:fixture-1", place.id)
         assertEquals("합성 테스트 장소", place.name)
         assertEquals("합성 테스트 주소", place.address)
         assertEquals(127.0374, place.coordinate.longitude)
         assertEquals(37.5445, place.coordinate.latitude)
-        assertTrue(result.attributions.any { it.text == "Powered by Geoapify" })
-        assertTrue(result.attributions.any { it.text == "fixture data source" && it.url == "https://example.org/copyright" })
+        assertEquals(listOf(PlaceAttribution("장소 정보: 카카오맵", "https://map.kakao.com/")), result.attributions)
+        assertEquals(1, requests.get())
     }
 
     @Test
-    fun `missing or null address becomes empty string and address result can supply a display name`() {
-        handler = { respond(it, 200, """{"results":[{"place_id":"address","address_line1":"합성 주소","formatted":null,"lon":127.1,"lat":37.5}]}""") }
-        val result = provider().search("합성 주소", 10)
-        assertEquals("합성 주소", result.places.single().name)
+    fun `missing or null place address becomes empty string`() {
+        handler = { respond(it, 200, """{"documents":[{"id":"fixture","place_name":"합성 장소","road_address_name":null,"x":127.1,"y":37.5}]}""") }
+        val result = provider().search("합성 장소", 10)
+        assertEquals("합성 장소", result.places.single().name)
         assertEquals("", result.places.single().address)
     }
 
     @Test
+    fun `empty keyword results use the address endpoint and preserve building name and road address`() {
+        handler = { respond(it, 200, if (it.requestURI.path.endsWith("keyword.json")) EMPTY else ADDRESS) }
+        val result = provider().search("합성 주소 1", 10)
+        val place = result.places.single()
+        assertEquals(listOf("/v2/local/search/keyword.json", "/v2/local/search/address.json"), paths.toList())
+        assertEquals("합성 건물", place.name)
+        assertEquals("합성 도로명 주소 1", place.address)
+        assertEquals(127.0374, place.coordinate.longitude)
+        assertTrue(place.id.startsWith("kakao:address:"))
+        assertEquals(2, requests.get())
+    }
+
+    @Test
+    fun `address without road details uses the address as display name`() {
+        handler = { respond(it, 200, if (it.requestURI.path.endsWith("keyword.json")) EMPTY else
+            """{"documents":[{"address_name":"합성 지번 주소","road_address":null,"x":"127","y":"37"}]}""") }
+        val place = provider().search("합성 지번 주소", 10).places.single()
+        assertEquals("합성 지번 주소", place.name)
+        assertEquals("합성 지번 주소", place.address)
+    }
+
+    @Test
     fun `empty provider array is a successful empty result`() {
-        handler = { respond(it, 200, """{"results":[]}""") }
+        handler = { respond(it, 200, """{"documents":[]}""") }
         assertEquals(PlaceSearchResult(emptyList()), provider().search("없는 장소", 10))
+        assertEquals(2, requests.get())
     }
 
     @Test
     fun `malformed provider response never becomes partial or empty success`() {
-        val invalid = listOf("", "not-json", "[]", "{}", "{\"results\":null}", "{\"results\":{}}",
+        val invalid = listOf("", "not-json", "[]", "{}", "{\"documents\":null}", "{\"documents\":{}}",
             SUCCESS.replace("127.0374", "NaN"), SUCCESS.replace("127.0374", "181"), SUCCESS.replace("37.5445", "91"),
             SUCCESS.replace("\"127.0374\"", "true"), SUCCESS.replace("\"fixture-1\"", "42"),
-            SUCCESS.replace("합성 테스트 장소", " ").replace("합성 테스트 주소", " "),
-            SUCCESS.replace("https://example.org/copyright", "javascript:alert(1)"),
-            SUCCESS.replace("https://example.org/copyright", "http://bad host"))
+            SUCCESS.replace("합성 테스트 장소", " "))
         val adapter = provider()
         invalid.forEach { body ->
             handler = { respond(it, 200, body) }
@@ -119,20 +144,21 @@ class GeoapifyPlaceSearchProviderTest {
             assertEquals(PlaceSearchFailureReason.BAD_RESPONSE, failure.reason)
             assertNull(failure.cause)
         }
+        assertEquals(invalid.size, requests.get())
     }
 
     @Test
     fun `valid candidates do not hide another invalid candidate`() {
-        val valid = """{"place_id":"valid","name":"합성 후보","lon":127.1,"lat":37.5}"""
-        handler = { respond(it, 200, """{"results":[$valid,{}]}""") }
+        val valid = """{"id":"valid","place_name":"합성 후보","x":127.1,"y":37.5}"""
+        handler = { respond(it, 200, """{"documents":[$valid,{}]}""") }
         assertEquals(PlaceSearchFailureReason.BAD_RESPONSE, assertFailsWith<PlaceSearchFailure> { provider().search("서울숲", 10) }.reason)
     }
 
     @Test
     fun `provider cannot exceed the requested candidate count or the body limit`() {
-        handler = { respond(it, 200, """{"results":[{},{}]}""") }
+        handler = { respond(it, 200, """{"documents":[{},{}]}""") }
         assertEquals(PlaceSearchFailureReason.BAD_RESPONSE, assertFailsWith<PlaceSearchFailure> { provider().search("서울숲", 1) }.reason)
-        handler = { respond(it, 200, " ".repeat(GeoapifyPlaceSearchProvider.MAX_RESPONSE_BYTES + 1)) }
+        handler = { respond(it, 200, " ".repeat(KakaoPlaceSearchProvider.MAX_RESPONSE_BYTES + 1)) }
         assertEquals(PlaceSearchFailureReason.BAD_RESPONSE, assertFailsWith<PlaceSearchFailure> { provider().search("서울숲", 10) }.reason)
     }
 
@@ -179,6 +205,39 @@ class GeoapifyPlaceSearchProviderTest {
     }
 
     @Test
+    fun `keyword and address calls share a single response deadline`() {
+        handler = {
+            if (it.requestURI.path.endsWith("keyword.json")) {
+                Thread.sleep(160)
+                respond(it, 200, EMPTY)
+            } else {
+                Thread.sleep(300)
+                respond(it, 200, ADDRESS)
+            }
+        }
+        val failure = assertFailsWith<PlaceSearchFailure> {
+            provider(timeout = Duration.ofMillis(400)).search("합성 주소", 10)
+        }
+        assertEquals(PlaceSearchFailureReason.TIMEOUT, failure.reason)
+        assertEquals(2, requests.get())
+    }
+
+    @Test
+    fun `address failure never becomes empty success`() {
+        handler = { respond(it, if (it.requestURI.path.endsWith("keyword.json")) 200 else 503, EMPTY) }
+        assertEquals(PlaceSearchFailureReason.UNAVAILABLE,
+            assertFailsWith<PlaceSearchFailure> { provider().search("주소", 10) }.reason)
+        assertEquals(2, requests.get())
+    }
+
+    @Test
+    fun `duplicate place IDs are removed without losing the original ordering`() {
+        val item = """{"id":"same","place_name":"합성 장소","x":127,"y":37}"""
+        handler = { respond(it, 200, """{"documents":[$item,$item]}""") }
+        assertEquals(1, provider().search("합성 장소", 10).places.size)
+    }
+
+    @Test
     fun `connection failure is unavailable and never empty`() {
         server.stop(0)
         assertEquals(PlaceSearchFailureReason.UNAVAILABLE, assertFailsWith<PlaceSearchFailure> { provider().search("서울숲", 10) }.reason)
@@ -205,6 +264,8 @@ class GeoapifyPlaceSearchProviderTest {
 
     companion object {
         private const val FAKE_KEY = "fixture-key-not-a-real-api-key"
-        private const val SUCCESS = """{"results":[{"place_id":"fixture-1","name":"합성 테스트 장소","formatted":"합성 테스트 주소","lon":"127.0374","lat":37.5445,"datasource":{"attribution":"fixture data source","url":"https://example.org/copyright"},"unknown_new_field":true}]}"""
+        private const val SUCCESS = """{"documents":[{"id":"fixture-1","place_name":"합성 테스트 장소","address_name":"합성 지번 주소","road_address_name":"합성 테스트 주소","x":"127.0374","y":37.5445,"unknown_new_field":true}]}"""
+        private const val EMPTY = """{"documents":[]}"""
+        private const val ADDRESS = """{"documents":[{"address_name":"합성 지번 주소 1","road_address":{"address_name":"합성 도로명 주소 1","building_name":"합성 건물"},"x":"127.0374","y":"37.5445"}]}"""
     }
 }
