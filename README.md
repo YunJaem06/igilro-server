@@ -1,6 +1,6 @@
 # 이길로 서버
 
-사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 실제 OSM 보행 그래프 적재·fastest 경로, 건물 자료 적재·기존 경로의 그늘 평가와 Geoapify 기반 한국 장소명·주소 검색을 구현했습니다. 그늘 우선 경로 최적화는 다음 단계입니다.
+사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 실제 OSM 보행 그래프 적재·fastest 경로, 건물 자료 적재·기존 경로의 그늘 평가와 카카오 Local 기반 한국 장소명·주소 검색을 구현했습니다. 그늘 우선 경로 최적화는 다음 단계입니다.
 
 ## 기술 구성
 
@@ -56,26 +56,19 @@ curl -i http://localhost:8080/actuator/health/readiness
 
 ## 장소명·주소 검색
 
-`GET /api/v1/places/search`는 `query`만 받습니다. Geoapify Geocoding API의 대한민국 검색 결과를 최대 10개 반환하고 결과 없음은 `200 {"places":[]}`입니다. 기존 경로 지원 범위는 서울숲 pilot이며 장소 검색 범위와 별개입니다. 경로 API에는 기존 좌표만 전달합니다.
+`GET /api/v1/places/search`는 `query` 하나를 받습니다. 카카오 Local 키워드 검색을 먼저 호출하고 정상 빈 결과일 때 주소 검색으로 확인합니다. 최대 10개를 반환하며 모두 빈 결과면 `200 {"places":[]}`입니다. 서울숲 경로 지원 범위와 장소 검색 범위는 별개입니다.
 
-[Geoapify MyProjects](https://myprojects.geoapify.com/)에서 프로젝트 → API Keys로 서버 키를 발급하고 `.env.example`의 `GEOAPIFY_API_KEY`를 설정합니다. Mapbox 공개 토큰과 별도입니다. 실제 키는 `.env`/프로세스 환경에만 보관합니다. 키가 없어도 서버·경로 API는 동작하며 장소 요청만 `503 PLACE_SEARCH_NOT_CONFIGURED`를 반환합니다.
+[카카오디벨로퍼스](https://developers.kakao.com/) 앱에서 카카오맵 API를 활성화하고 서버 `.env`에 `KAKAO_REST_API_KEY`를 설정한 뒤 local 프로필로 서버를 재시작합니다. 키가 없으면 장소 요청만 `503 PLACE_SEARCH_NOT_CONFIGURED`를 반환합니다. 기존 `GEOAPIFY_API_KEY`는 더 이상 사용하지 않습니다.
 
-```sh
-# .env에 GEOAPIFY_API_KEY를 추가한 뒤 서버 프로세스로 export합니다.
-set -a
-source .env
-set +a
-./gradlew bootRun --args='--spring.profiles.active=local'
+```dotenv
+KAKAO_REST_API_KEY=발급받은_실제_REST_API_키
 ```
 
-```sh
-curl --get --include 'http://localhost:8080/api/v1/places/search' \
-  --header 'Accept: application/json' --data-urlencode 'query=서울숲'
-```
+검색·선택 결과는 현재 실행 중 메모리 상태로만 사용하며 DB·파일·캐시에 저장하지 않습니다. 결과의 출처는 카카오맵 링크로 표시합니다. Mapbox 지도·자체 경로 계산은 유지하며 경로 요청에는 기존 좌표만 전달합니다.
 
-기본 `PLACES_CONNECT_TIMEOUT=2s`, `PLACES_RESPONSE_TIMEOUT=3s`, `PLACES_REQUESTS_PER_SECOND=4`입니다. 검색어는 공백 정규화 후 1~100 Unicode 문자, 원본은 1,024 UTF-16 단위 이하입니다. 프로세스별 250ms 요청 간격 제한은 429를 반환하며 복제 수와 공급자 프로젝트의 전체 quota를 함께 고려해야 합니다.
+기본 `PLACES_CONNECT_TIMEOUT=2s`, `PLACES_RESPONSE_TIMEOUT=3s`, `PLACES_REQUESTS_PER_SECOND=4`를 유지합니다. 키워드·주소 호출은 하나의 응답 제한 시간을 공유하며, 한 사용자 검색당 공급자 호출은 최대 두 번입니다.
 
-Flutter는 비필수 응답 필드 `attributions`를 보존하고 검색 목록과 선택 장소 화면에 Geoapify·OSM 및 실제 데이터 출처/링크를 표시해야 합니다. [공급자 선정·요금/저장 조건·전체 오류 코드·실행 방법](docs/place-search.md), [검증 결과](docs/place-search-verification.md)를 참고합니다. 실제 키가 없어 공급자 실검색 성공/국내 품질 검증은 아직 수행하지 않았습니다.
+[카카오 전환 계약·Mapbox 병용 근거·키 설정·검증 범위](docs/kakao-place-search.md)를 참고합니다. 2026-10-29 실제 키를 등록해 장소명·주소 검색 HTTP 200과 휴대폰 LAN 검색 통신을 확인했습니다. 다양한 검색어의 품질·핀 위치 평가는 별도입니다. [이전 Geoapify 검증 기록](docs/place-search-verification.md)은 당시 기록입니다.
 
 ## 서버 컨테이너와 AWS 인프라
 

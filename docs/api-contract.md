@@ -12,7 +12,9 @@ Flutter는 지도 선택·현재 위치로 준비한 WGS84 좌표를 경로 요�
 
 ## 장소명·주소 검색
 
-`GET /api/v1/places/search?query=서울숲`을 구현했습니다. 필수 파라미터는 `query` 하나이며 정규화 후 1~100 Unicode 문자, 최대 후보 10개입니다. 성공의 `places[]`는 `id`, `name`, 빈 문자열을 허용하는 `address`, WGS84 숫자의 `coordinate.longitude/latitude`입니다. `id`에는 `geoapify:` 접두사가 있으며 opaque 값입니다. 결과가 없으면 정확히 `200 {"places":[]}`를 반환합니다.
+2026-10-29 공급자를 카카오 Local로 교체했습니다. endpoint·응답 필드·오류 형식은 유지합니다. 서버 키는 KAKAO_REST_API_KEY이며, [최신 계약](kakao-place-search.md)을 참고합니다.
+
+`GET /api/v1/places/search?query=서울숲`을 구현했습니다. 필수 파라미터는 `query` 하나이며 정규화 후 1~100 Unicode 문자, 최대 후보 10개입니다. 성공의 `places[]`는 `id`, `name`, 빈 문자열을 허용하는 `address`, WGS84 숫자의 `coordinate.longitude/latitude`입니다. `id`에는 `kakao:place:` 또는 `kakao:address:` 접두사가 있으며 opaque 값입니다. 결과가 없으면 정확히 `200 {"places":[]}`를 반환합니다.
 
 결과가 있을 때 출처 표시를 위한 비필수 `attributions: [{text, url}]`을 추가합니다. `url`은 없으면 null입니다. 앱은 출처를 선택 상태와 함께 보관·표시합니다. 공급자 장애·미준비·429·timeout·잘못된 응답은 성공의 빈 배열로 처리하지 않습니다. 키 미설정은 503 `PLACE_SEARCH_NOT_CONFIGURED`, 공급자 인증 실패는 앱 사용자 401 대신 503입니다. 전체 매핑·제한·출처 조건은 [장소 검색 계약](place-search.md)에 명시했습니다.
 
