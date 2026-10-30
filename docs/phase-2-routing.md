@@ -2,7 +2,7 @@
 
 ## 구현 범위
 
-`POST /api/v1/routes/search`가 실제 OSM 보행 그래프에서 `walking` / `fastest` 경로 한 개를 계산합니다. Domain/Application은 순수 Kotlin과 JDK를 사용하며 OSM 해석·XML·JDBC·Spring·HTTP는 외부 계층에 둡니다. Phase 3에서 기존 경로의 [건물 그늘 평가](phase-3-shade.md)를 추가했습니다. 장소 검색, 그늘 우선 경로, 다른 환경 점수, 인증과 요청 제한 기능은 다음 단계입니다.
+`POST /api/v1/routes/search`가 실제 OSM 보행 그래프에서 `walking` / `fastest` 경로 한 개를 계산합니다. Domain/Application은 순수 Kotlin과 JDK를 사용하며 OSM 해석·XML·JDBC·Spring·HTTP는 외부 계층에 둡니다. 이후 [건물 그늘 평가](phase-3-shade.md), 장소 검색과 [shade 경로 최적화](phase-4-shade-routing.md)를 추가했습니다. 실제 자료의 그늘 평가 구역 확보, 다른 환경 점수, 인증과 요청 제한은 후속 작업입니다.
 
 현재 pilot 범위는 서울숲 주변 직사각형 `[서쪽 127.027, 남쪽 37.533, 동쪽 127.055, 북쪽 37.558]`입니다. 범위 내부라도 50m 안에 연결 가능한 보행 구간이 없으면 404입니다. 이는 모든 장소의 출입구와 현장 통행 가능 여부를 검증한 서비스 영역이라는 뜻은 아닙니다.
 

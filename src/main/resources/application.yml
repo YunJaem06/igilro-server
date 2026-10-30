@@ -57,6 +57,8 @@ logging:
     level: "%5p [requestId:%X{requestId:-}]"
 
 igilro:
+  shade-routing:
+    ground-verified-datasets: ${SHADE_GROUND_VERIFIED_DATASETS:}
   places:
     api-key: ${KAKAO_REST_API_KEY:}
     connect-timeout: ${PLACES_CONNECT_TIMEOUT:2s}

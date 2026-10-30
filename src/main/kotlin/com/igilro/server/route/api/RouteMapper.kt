@@ -15,12 +15,13 @@ object RouteMapper {
 
     fun toResponse(result: RouteSearchResult): RouteSearchResponse {
         val route = result.route
-        val baselineSeconds = ceil(route.durationSeconds).toLong()
+        val baselineSeconds = ceil(result.baselineDurationSeconds).toLong()
         val seconds = ceil(route.durationSeconds).toLong()
         fun snap(value: SnappedLocation) = SnapResponse(CoordinateResponse(value.coordinate.longitude, value.coordinate.latitude), round(value.distanceMeters * 10) / 10)
         return RouteSearchResponse(
             routes = listOf(RouteResponse(
                 id = UUID.randomUUID().toString(),
+                mode = result.mode,
                 geometry = LineStringResponse(coordinates = route.coordinates.map { listOf(it.longitude, it.latitude) }),
                 distanceMeters = round(route.distanceMeters * 10) / 10,
                 durationSeconds = seconds,
@@ -33,7 +34,7 @@ object RouteMapper {
             evaluatedAt = result.evaluatedAt,
             dataVersion = result.dataVersion,
             timeModelVersion = WalkingTimeModel.VERSION,
-            routingModelVersion = DijkstraRoutePlanner.VERSION,
+            routingModelVersion = if (result.mode == "shade") ShadeRouteOptimizer.VERSION else DijkstraRoutePlanner.VERSION,
             baselineDurationSeconds = baselineSeconds,
             snapping = SnappingResponse(snap(route.origin), snap(route.destination)),
         )

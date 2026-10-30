@@ -31,11 +31,11 @@ data class ShadeEvaluationResponse(
 
 data class RouteResponse(
     @field:Schema(description = "응답 안에서 경로를 식별하는 값. 저장·재조회 기능은 미지원", requiredMode = Schema.RequiredMode.REQUIRED) val id: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val mode: String = "fastest",
+    @field:Schema(allowableValues = ["fastest", "shade"], requiredMode = Schema.RequiredMode.REQUIRED) val mode: String = "fastest",
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val geometry: LineStringResponse,
     @field:Schema(description = "스냅된 두 지점 사이의 보행 그래프 거리(m)", requiredMode = Schema.RequiredMode.REQUIRED) val distanceMeters: Double,
     @field:Schema(description = "보행/계단 속도 모델의 예상 소요 시간(초), 올림 정수", requiredMode = Schema.RequiredMode.REQUIRED) val durationSeconds: Long,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val additionalDurationSeconds: Long,
+    @field:Schema(description = "같은 스냅 지점의 실제 fastest 예상 시간 대비 추가 초(각 시간 올림 후 차이)", requiredMode = Schema.RequiredMode.REQUIRED) val additionalDurationSeconds: Long,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val metrics: RouteMetricsResponse = RouteMetricsResponse(),
     @field:Schema(description = "출발 시각의 건물 그림자 평가 상태·커버리지·버전") val shadeEvaluation: ShadeEvaluationResponse? = null,
     @field:Schema(description = "선택된 보행 경로의 출발·분기·횡단·도착 안내. 기존 경로를 변경하지 않는 부가 정보")

@@ -47,5 +47,7 @@ data class RouteSearchResult(
     val dataVersion: String,
     val evaluatedAt: Instant,
     val shade: ShadeEvaluation = ShadeEvaluation(ShadeStatus.DATA_UNAVAILABLE),
+    val mode: String = "fastest",
+    val baselineDurationSeconds: Double = route.durationSeconds,
     val guidance: RouteGuidance? = null,
 )

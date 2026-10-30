@@ -1,0 +1,49 @@
+{
+  "routes" : [ {
+    "id" : "dea4304e-9efd-49a4-9825-3c25cce83ada",
+    "mode" : "shade",
+    "geometry" : {
+      "type" : "LineString",
+      "coordinates" : [ [ 127.03, 37.54 ], [ 127.03, 37.5401 ], [ 127.032, 37.5401 ], [ 127.032, 37.54 ] ]
+    },
+    "distanceMeters" : 199.0,
+    "durationSeconds" : 143,
+    "additionalDurationSeconds" : 16,
+    "metrics" : {
+      "shadeRatio" : 0.8547076793068715,
+      "quietScore" : null,
+      "lightingScore" : null,
+      "trafficSignalCount" : null
+    },
+    "shadeEvaluation" : {
+      "status" : "AVAILABLE",
+      "coverage" : 1.0,
+      "dataVersion" : "buildings-v1-f387ee5e098a57a4e23509c229691508565cf14914a1f867caa8fea7d52e31fa",
+      "modelVersion" : "building-prism-v2-noaa-5179-minsun5-height-source",
+      "attribution" : "Synthetic test geometry; not real buildings",
+      "solarAltitudeDegrees" : 74.22280790971166
+    }
+  } ],
+  "evaluatedAt" : "2026-06-21T03:00:00Z",
+  "dataVersion" : "shade-routing-graph",
+  "timeModelVersion" : "walking-v1-flat-1.4-steps-0.9",
+  "routingModelVersion" : "shade-v1-min-sun-seconds-detour30-pareto100k-sections12k",
+  "baselineDurationSeconds" : 127,
+  "snapping" : {
+    "origin" : {
+      "coordinate" : {
+        "longitude" : 127.03,
+        "latitude" : 37.54
+      },
+      "distanceMeters" : 0.0
+    },
+    "destination" : {
+      "coordinate" : {
+        "longitude" : 127.032,
+        "latitude" : 37.54
+      },
+      "distanceMeters" : 0.0
+    }
+  },
+  "attribution" : "© OpenStreetMap contributors"
+}

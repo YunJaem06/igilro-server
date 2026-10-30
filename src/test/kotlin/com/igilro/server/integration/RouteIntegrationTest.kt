@@ -104,7 +104,7 @@ class RouteIntegrationTest {
             .andExpect(header().string("X-Request-Id", id))
         mvc.perform(request(query(destination = "127.034,37.543")))
             .andExpect(status().isNotFound).andExpect(jsonPath("$.code").value("ROUTE_NOT_FOUND"))
-        mvc.perform(request(query(extra = ",\"mode\":\"shade\"")))
+        mvc.perform(request(query(extra = ",\"mode\":\"sunlight\"")))
             .andExpect(status().isBadRequest).andExpect(jsonPath("$.code").value("INVALID_ROUTE_QUERY"))
         jdbc.execute("DELETE FROM route_service_area")
         mvc.perform(request(query())).andExpect(status().isServiceUnavailable)
