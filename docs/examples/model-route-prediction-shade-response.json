@@ -1,0 +1,902 @@
+{
+  "routes": [
+    {
+      "id": "fbd70427-65bb-40e3-8ab8-7b9056f5b61d",
+      "mode": "shade",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            127.03742501361813,
+            37.54450953977455
+          ],
+          [
+            127.0373961,
+            37.5445572
+          ],
+          [
+            127.0373606,
+            37.5446789
+          ],
+          [
+            127.037339,
+            37.5448006
+          ],
+          [
+            127.0373263,
+            37.5449126
+          ],
+          [
+            127.0373293,
+            37.5450201
+          ],
+          [
+            127.0373437,
+            37.5451301
+          ],
+          [
+            127.0373497,
+            37.5451557
+          ],
+          [
+            127.0373686,
+            37.5452365
+          ],
+          [
+            127.0374085,
+            37.5453441
+          ],
+          [
+            127.0374562,
+            37.5454446
+          ],
+          [
+            127.0375415,
+            37.5455707
+          ],
+          [
+            127.0376188,
+            37.5456583
+          ],
+          [
+            127.0377149,
+            37.5457471
+          ],
+          [
+            127.0378124,
+            37.5458267
+          ],
+          [
+            127.0379057,
+            37.5458928
+          ],
+          [
+            127.0379932,
+            37.5459461
+          ],
+          [
+            127.0381458,
+            37.5460268
+          ],
+          [
+            127.0382712,
+            37.5460828
+          ],
+          [
+            127.0383953,
+            37.546127
+          ],
+          [
+            127.0385192,
+            37.5461563
+          ],
+          [
+            127.0386665,
+            37.5461735
+          ],
+          [
+            127.0388108,
+            37.5461801
+          ],
+          [
+            127.0389779,
+            37.5461805
+          ],
+          [
+            127.0392066,
+            37.5467035
+          ],
+          [
+            127.0393304,
+            37.5469842
+          ],
+          [
+            127.0394115,
+            37.5471595
+          ],
+          [
+            127.0394523,
+            37.5471615
+          ],
+          [
+            127.0395902,
+            37.5474173
+          ],
+          [
+            127.0399043,
+            37.5473283
+          ],
+          [
+            127.039935,
+            37.5473197
+          ],
+          [
+            127.0402032,
+            37.5472416
+          ],
+          [
+            127.0403602,
+            37.5472015
+          ],
+          [
+            127.0406334,
+            37.5471255
+          ],
+          [
+            127.0409066,
+            37.5470495
+          ],
+          [
+            127.0412253,
+            37.5469609
+          ],
+          [
+            127.0416263,
+            37.5468494
+          ],
+          [
+            127.0418642,
+            37.5467832
+          ],
+          [
+            127.042247,
+            37.5466768
+          ],
+          [
+            127.0425963,
+            37.5465798
+          ],
+          [
+            127.042636,
+            37.5466785
+          ],
+          [
+            127.042864,
+            37.5471782
+          ],
+          [
+            127.042914,
+            37.5473088
+          ],
+          [
+            127.0430296,
+            37.5472748
+          ],
+          [
+            127.0431547,
+            37.547576
+          ],
+          [
+            127.04284246471815,
+            37.547669575463374
+          ]
+        ]
+      },
+      "distanceMeters": 865.6,
+      "durationSeconds": 619,
+      "additionalDurationSeconds": 47,
+      "prediction": {
+        "status": "MODEL_BASED_PREDICTION",
+        "modeledShadeRatio": 0.5460082072396614,
+        "baselineModeledShadeRatio": 0.3113779386445875,
+        "physicalShadeCoverage": null
+      },
+      "shadeSegments": [
+        {
+          "state": "SUNLIGHT",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                127.03742501361813,
+                37.54450953977455
+              ],
+              [
+                127.0373961,
+                37.5445572
+              ],
+              [
+                127.0373606,
+                37.5446789
+              ],
+              [
+                127.037339,
+                37.5448006
+              ],
+              [
+                127.0373263,
+                37.5449126
+              ],
+              [
+                127.0373293,
+                37.5450201
+              ],
+              [
+                127.0373437,
+                37.5451301
+              ],
+              [
+                127.0373497,
+                37.5451557
+              ],
+              [
+                127.0373686,
+                37.5452365
+              ],
+              [
+                127.0374085,
+                37.5453441
+              ],
+              [
+                127.0374562,
+                37.5454446
+              ],
+              [
+                127.0375415,
+                37.5455707
+              ],
+              [
+                127.0376188,
+                37.5456583
+              ],
+              [
+                127.0377149,
+                37.5457471
+              ],
+              [
+                127.0378124,
+                37.5458267
+              ],
+              [
+                127.0379057,
+                37.5458928
+              ],
+              [
+                127.0379932,
+                37.5459461
+              ],
+              [
+                127.0381458,
+                37.5460268
+              ],
+              [
+                127.0382712,
+                37.5460828
+              ],
+              [
+                127.0383953,
+                37.546127
+              ],
+              [
+                127.0385192,
+                37.5461563
+              ],
+              [
+                127.0386665,
+                37.5461735
+              ],
+              [
+                127.0388108,
+                37.5461801
+              ],
+              [
+                127.0389779,
+                37.5461805
+              ],
+              [
+                127.0392066,
+                37.5467035
+              ],
+              [
+                127.0393304,
+                37.5469842
+              ],
+              [
+                127.0394115,
+                37.5471595
+              ],
+              [
+                127.0394421,
+                37.547161
+              ]
+            ]
+          },
+          "fromDistanceMeters": 0.0,
+          "toDistanceMeters": 391.4822093441144,
+          "distanceMeters": 391.4822093441144
+        },
+        {
+          "state": "SHADE",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                127.0394421,
+                37.547161
+              ],
+              [
+                127.0394523,
+                37.5471615
+              ],
+              [
+                127.0395902,
+                37.5474173
+              ],
+              [
+                127.0399043,
+                37.5473283
+              ],
+              [
+                127.039935,
+                37.5473197
+              ],
+              [
+                127.04015587058824,
+                37.547255382352944
+              ]
+            ]
+          },
+          "fromDistanceMeters": 391.4822093441144,
+          "toDistanceMeters": 476.3372817768527,
+          "distanceMeters": 84.85507243273833
+        },
+        {
+          "state": "SUNLIGHT",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                127.04015587058824,
+                37.547255382352944
+              ],
+              [
+                127.04017164705881,
+                37.547250788235296
+              ]
+            ]
+          },
+          "fromDistanceMeters": 476.3372817768527,
+          "toDistanceMeters": 477.8189980000648,
+          "distanceMeters": 1.4817162232121177
+        },
+        {
+          "state": "SHADE",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [
+                127.04017164705881,
+                37.547250788235296
+              ],
+              [
+                127.0402032,
+                37.5472416
+              ],
+              [
+                127.0403602,
+                37.5472015
+              ],
+              [
+                127.0406334,
+                37.5471255
+              ],
+              [
+                127.0409066,
+                37.5470495
+              ],
+              [
+                127.0412253,
+                37.5469609
+              ],
+              [
+                127.0416263,
+                37.5468494
+              ],
+              [
+                127.0418642,
+                37.5467832
+              ],
+              [
+                127.042247,
+                37.5466768
+              ],
+              [
+                127.0425963,
+                37.5465798
+              ],
+              [
+                127.042636,
+                37.5466785
+              ],
+              [
+                127.042864,
+                37.5471782
+              ],
+              [
+                127.042914,
+                37.5473088
+              ],
+              [
+                127.0430296,
+                37.5472748
+              ],
+              [
+                127.0431547,
+                37.547576
+              ],
+              [
+                127.04284246471815,
+                37.547669575463374
+              ]
+            ]
+          },
+          "fromDistanceMeters": 477.8189980000648,
+          "toDistanceMeters": 865.5749549524588,
+          "distanceMeters": 387.755956952394
+        }
+      ],
+      "guidance": {
+        "status": "AVAILABLE",
+        "metadataStatus": "OSM_TAGS",
+        "modelVersion": "walking-guidance-v1-topology-look10m",
+        "language": "ko",
+        "steps": [
+          {
+            "index": 0,
+            "type": "DEPART",
+            "coordinate": {
+              "longitude": 127.03742501361813,
+              "latitude": 37.54450953977455
+            },
+            "geometryIndex": 0,
+            "distanceFromStartMeters": 0.0,
+            "distanceToNextStepMeters": 73.08921271951128,
+            "durationToNextStepSeconds": 52.20658051393664,
+            "instruction": "경로를 따라 출발하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": null,
+            "bearingAfterDegrees": 339.5247292674701,
+            "crossing": null
+          },
+          {
+            "index": 1,
+            "type": "KEEP_RIGHT",
+            "coordinate": {
+              "longitude": 127.0373497,
+              "latitude": 37.5451557
+            },
+            "geometryIndex": 7,
+            "distanceFromStartMeters": 73.08921271951128,
+            "distanceToNextStepMeters": 33.54896755035607,
+            "durationToNextStepSeconds": 23.963548250254348,
+            "instruction": "갈림길에서 오른쪽 길을 따라 진행하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 7.257590143353468,
+            "bearingAfterDegrees": 11.01285358121919,
+            "crossing": null
+          },
+          {
+            "index": 2,
+            "type": "KEEP_RIGHT",
+            "coordinate": {
+              "longitude": 127.0374562,
+              "latitude": 37.5454446
+            },
+            "geometryIndex": 10,
+            "distanceFromStartMeters": 106.63818026986735,
+            "distanceToNextStepMeters": 15.91110563598609,
+            "durationToNextStepSeconds": 11.365075454275782,
+            "instruction": "갈림길에서 오른쪽 길을 따라 진행하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 20.62219658896879,
+            "bearingAfterDegrees": 28.206183629191628,
+            "crossing": null
+          },
+          {
+            "index": 3,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0375415,
+              "latitude": 37.5455707
+            },
+            "geometryIndex": 11,
+            "distanceFromStartMeters": 122.54928590585344,
+            "distanceToNextStepMeters": 57.99610097449248,
+            "durationToNextStepSeconds": 41.42578641035176,
+            "instruction": "갈림길에서 계속 직진하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 28.206168631834032,
+            "bearingAfterDegrees": 34.978274260701596,
+            "crossing": null
+          },
+          {
+            "index": 4,
+            "type": "KEEP_LEFT",
+            "coordinate": {
+              "longitude": 127.0379932,
+              "latitude": 37.5459461
+            },
+            "geometryIndex": 16,
+            "distanceFromStartMeters": 180.54538688034592,
+            "distanceToNextStepMeters": 92.85467076226405,
+            "durationToNextStepSeconds": 66.3247648301886,
+            "instruction": "갈림길에서 왼쪽 길을 따라 진행하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 52.35017847752238,
+            "bearingAfterDegrees": 56.29704215491415,
+            "crossing": null
+          },
+          {
+            "index": 5,
+            "type": "TURN_LEFT",
+            "coordinate": {
+              "longitude": 127.0389779,
+              "latitude": 37.5461805
+            },
+            "geometryIndex": 23,
+            "distanceFromStartMeters": 273.40005764260997,
+            "distanceToNextStepMeters": 61.551120478163,
+            "durationToNextStepSeconds": 43.96508605583074,
+            "instruction": "갈림길에서 왼쪽으로 돌아 진행하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 89.82698100798115,
+            "bearingAfterDegrees": 19.121755597573838,
+            "crossing": null
+          },
+          {
+            "index": 6,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0392066,
+              "latitude": 37.5467035
+            },
+            "geometryIndex": 24,
+            "distanceFromStartMeters": 334.95117812077297,
+            "distanceToNextStepMeters": 88.36493512966877,
+            "durationToNextStepSeconds": 63.11781080690628,
+            "instruction": "갈림길에서 계속 직진하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 19.121651396043035,
+            "bearingAfterDegrees": 19.273780719992658,
+            "crossing": null
+          },
+          {
+            "index": 7,
+            "type": "TURN_RIGHT",
+            "coordinate": {
+              "longitude": 127.0395902,
+              "latitude": 37.5474173
+            },
+            "geometryIndex": 28,
+            "distanceFromStartMeters": 423.31611325044173,
+            "distanceToNextStepMeters": 29.406628373503622,
+            "durationToNextStepSeconds": 21.004734552502555,
+            "instruction": "갈림길에서 오른쪽으로 돌아 서울숲2길 방면으로 진행하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 23.1428070530672,
+            "bearingAfterDegrees": 109.66588726426062,
+            "crossing": null
+          },
+          {
+            "index": 8,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0399043,
+              "latitude": 37.5473283
+            },
+            "geometryIndex": 29,
+            "distanceFromStartMeters": 452.72274162394535,
+            "distanceToNextStepMeters": 2.8705136087585856,
+            "durationToNextStepSeconds": 2.050366863399006,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.66587295348529,
+            "bearingAfterDegrees": 109.9641490324151,
+            "crossing": null
+          },
+          {
+            "index": 9,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.039935,
+              "latitude": 37.5473197
+            },
+            "geometryIndex": 30,
+            "distanceFromStartMeters": 455.59325523270394,
+            "distanceToNextStepMeters": 25.18917579460475,
+            "durationToNextStepSeconds": 17.99226842471768,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.60658353102087,
+            "bearingAfterDegrees": 110.1673993067601,
+            "crossing": null
+          },
+          {
+            "index": 10,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0402032,
+              "latitude": 37.5472416
+            },
+            "geometryIndex": 31,
+            "distanceFromStartMeters": 480.7824310273087,
+            "distanceToNextStepMeters": 14.54179067201352,
+            "durationToNextStepSeconds": 10.38699333715249,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 110.16738759189525,
+            "bearingAfterDegrees": 107.85611409305801,
+            "crossing": null
+          },
+          {
+            "index": 11,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0403602,
+              "latitude": 37.5472015
+            },
+            "geometryIndex": 32,
+            "distanceFromStartMeters": 495.3242216993222,
+            "distanceToNextStepMeters": 25.52518375685196,
+            "durationToNextStepSeconds": 18.23227411203709,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 107.85611128345295,
+            "bearingAfterDegrees": 109.33419005522796,
+            "crossing": null
+          },
+          {
+            "index": 12,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0406334,
+              "latitude": 37.5471255
+            },
+            "geometryIndex": 33,
+            "distanceFromStartMeters": 520.8494054561742,
+            "distanceToNextStepMeters": 25.5252069274286,
+            "durationToNextStepSeconds": 18.232290662448975,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.33417895528072,
+            "bearingAfterDegrees": 109.3341718017752,
+            "crossing": null
+          },
+          {
+            "index": 13,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0409066,
+              "latitude": 37.5470495
+            },
+            "geometryIndex": 34,
+            "distanceFromStartMeters": 546.3746123836028,
+            "distanceToNextStepMeters": 29.774210706034864,
+            "durationToNextStepSeconds": 21.267293361453426,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.33416070950898,
+            "bearingAfterDegrees": 109.3225651658475,
+            "crossing": null
+          },
+          {
+            "index": 14,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0412253,
+              "latitude": 37.5469609
+            },
+            "geometryIndex": 35,
+            "distanceFromStartMeters": 576.1488230896376,
+            "distanceToNextStepMeters": 37.46379070452281,
+            "durationToNextStepSeconds": 26.759850503230552,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.32255104915998,
+            "bearingAfterDegrees": 109.32579174114755,
+            "crossing": null
+          },
+          {
+            "index": 15,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0416263,
+              "latitude": 37.5468494
+            },
+            "geometryIndex": 36,
+            "distanceFromStartMeters": 613.6126137941604,
+            "distanceToNextStepMeters": 22.227916159235065,
+            "durationToNextStepSeconds": 15.877082970882213,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.32577212684788,
+            "bearingAfterDegrees": 109.3394909000342,
+            "crossing": null
+          },
+          {
+            "index": 16,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.0418642,
+              "latitude": 37.5467832
+            },
+            "geometryIndex": 37,
+            "distanceFromStartMeters": 635.8405299533955,
+            "distanceToNextStepMeters": 35.762064245717056,
+            "durationToNextStepSeconds": 25.544331604083595,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.3394821552082,
+            "bearingAfterDegrees": 109.31912523766056,
+            "crossing": null
+          },
+          {
+            "index": 17,
+            "type": "CONTINUE",
+            "coordinate": {
+              "longitude": 127.042247,
+              "latitude": 37.5466768
+            },
+            "geometryIndex": 38,
+            "distanceFromStartMeters": 671.6025941991126,
+            "distanceToNextStepMeters": 32.629197815541715,
+            "durationToNextStepSeconds": 23.306569868244026,
+            "instruction": "갈림길에서 서울숲2길 방면으로 계속 직진하세요.",
+            "streetName": "서울숲2길",
+            "bearingBeforeDegrees": 109.31910684490708,
+            "bearingAfterDegrees": 109.30277236338299,
+            "crossing": null
+          },
+          {
+            "index": 18,
+            "type": "TURN_LEFT",
+            "coordinate": {
+              "longitude": 127.0425963,
+              "latitude": 37.5465798
+            },
+            "geometryIndex": 39,
+            "distanceFromStartMeters": 704.2317920146543,
+            "distanceToNextStepMeters": 85.7841451776643,
+            "durationToNextStepSeconds": 61.27438941261738,
+            "instruction": "갈림길에서 왼쪽으로 돌아 서울숲4길 방면으로 진행하세요.",
+            "streetName": "서울숲4길",
+            "bearingBeforeDegrees": 109.3027562339845,
+            "bearingAfterDegrees": 17.688010022585445,
+            "crossing": null
+          },
+          {
+            "index": 19,
+            "type": "TURN_RIGHT",
+            "coordinate": {
+              "longitude": 127.042914,
+              "latitude": 37.5473088
+            },
+            "geometryIndex": 42,
+            "distanceFromStartMeters": 790.0159371923186,
+            "distanceToNextStepMeters": 10.870062420383192,
+            "durationToNextStepSeconds": 7.764330300273741,
+            "instruction": "갈림길에서 오른쪽으로 돌아 서울숲4길 방면으로 진행하세요.",
+            "streetName": "서울숲4길",
+            "bearingBeforeDegrees": 16.8852205980308,
+            "bearingAfterDegrees": 110.35292077700637,
+            "crossing": null
+          },
+          {
+            "index": 20,
+            "type": "TURN_LEFT",
+            "coordinate": {
+              "longitude": 127.0430296,
+              "latitude": 37.5472748
+            },
+            "geometryIndex": 43,
+            "distanceFromStartMeters": 800.8859996127018,
+            "distanceToNextStepMeters": 35.26114866401895,
+            "durationToNextStepSeconds": 25.1865347600135,
+            "instruction": "갈림길에서 왼쪽으로 돌아 진행하세요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 110.35292009869636,
+            "bearingAfterDegrees": 18.226774648242667,
+            "crossing": null
+          },
+          {
+            "index": 21,
+            "type": "TURN_LEFT",
+            "coordinate": {
+              "longitude": 127.0431547,
+              "latitude": 37.547576
+            },
+            "geometryIndex": 44,
+            "distanceFromStartMeters": 836.1471482767207,
+            "distanceToNextStepMeters": 29.427782640800388,
+            "durationToNextStepSeconds": 21.01984474342885,
+            "instruction": "갈림길에서 왼쪽으로 돌아 서울숲6길 방면으로 진행하세요.",
+            "streetName": "서울숲6길",
+            "bearingBeforeDegrees": 18.226725374881653,
+            "bearingAfterDegrees": 290.70656338282487,
+            "crossing": null
+          },
+          {
+            "index": 22,
+            "type": "ARRIVE",
+            "coordinate": {
+              "longitude": 127.04284246471815,
+              "latitude": 37.547669575463374
+            },
+            "geometryIndex": 45,
+            "distanceFromStartMeters": 865.5749309175211,
+            "distanceToNextStepMeters": 0.0,
+            "durationToNextStepSeconds": 0.0,
+            "instruction": "경로의 도착 지점에 도착했어요.",
+            "streetName": null,
+            "bearingBeforeDegrees": 290.7065790899803,
+            "bearingAfterDegrees": null,
+            "crossing": null
+          }
+        ]
+      }
+    }
+  ],
+  "evaluatedAt": "2026-10-28T02:00:00Z",
+  "dataVersion": "osm-prediction-v2-ceec72ab0e1622eac6445939d61702911f7cd13534db4af62d8baac619d6c9e6",
+  "predictionDataVersion": "model-scene-v2-e3ca9834755d21b65813c101a53d39de035fe28d879462bb1d7158431a4cc908",
+  "modelVersion": "public-3d-prism-dem-v2-step0.5m",
+  "routingModelVersion": "model-prediction-v2-snap50-shade-v1-min-sun-seconds-detour30-pareto100k-sections12k",
+  "baselineDurationSeconds": 572,
+  "snapping": {
+    "origin": {
+      "coordinate": {
+        "longitude": 127.03742501361813,
+        "latitude": 37.54450953977455
+      },
+      "distanceMeters": 2.4
+    },
+    "destination": {
+      "coordinate": {
+        "longitude": 127.04284246471815,
+        "latitude": 37.547669575463374
+      },
+      "distanceMeters": 39.3
+    }
+  },
+  "quality": "EXPERIMENTAL_PARTIAL_MODEL",
+  "attribution": "VWorld public 3D model and terrain / OpenStreetMap contributors; source-specific terms apply",
+  "limitations": [
+    "MODEL_HEIGHTS_ARE_NOT_ACTUAL_HEIGHTS",
+    "PARTIAL_PROVIDER_SCENE",
+    "CAPTURE_DATE_UNCONFIRMED",
+    "DEM_BASE_AT_ONE_INTERIOR_POINT",
+    "VERTICAL_REFERENCE_ASSUMED_CONSISTENT",
+    "STRUCTURE_TAG_SCREENING_ONLY",
+    "TREES_CLOUDS_AND_TERRAIN_HORIZON_NOT_MODELED",
+    "FIXED_DEPARTURE_SUN",
+    "MIDPOINT_SAMPLING_NOT_EXACT_SHADOW_BOUNDARY",
+    "SCENE_BUFFER_150M_DISTANT_CASTERS_MAY_BE_MISSING"
+  ],
+  "buildingModelCount": 3064,
+  "terrainTileCount": 285,
+  "sampleStepMeters": 0.5,
+  "projectionMaxErrorMeters": 4.884026344079947e-06,
+  "omittedBuildingModelCount": 0,
+  "sceneBufferMetersApprox": 150.0,
+  "timeModelVersion": "walking-v1-flat-1.4-steps-0.9-haversine-distance"
+}

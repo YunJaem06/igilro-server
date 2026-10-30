@@ -1,0 +1,206 @@
+[
+  {
+    "name": "기존 서울숲 선택 좌표 → 서울숲길",
+    "request": {
+      "origin": {
+        "longitude": 127.0374,
+        "latitude": 37.5445
+      },
+      "destination": {
+        "longitude": 127.043,
+        "latitude": 37.548
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "서울숲역 4번출구 → 군마상",
+    "request": {
+      "origin": {
+        "longitude": 127.0446107,
+        "latitude": 37.5445595
+      },
+      "destination": {
+        "longitude": 127.0421788,
+        "latitude": 37.5440292
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "서울숲역 3번출구 → 갤러리정원 주변 산책로",
+    "request": {
+      "origin": {
+        "longitude": 127.0443258,
+        "latitude": 37.5429175
+      },
+      "destination": {
+        "longitude": 127.0402,
+        "latitude": 37.5417
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "9번출입구 정류장 → 수변휴게실",
+    "request": {
+      "origin": {
+        "longitude": 127.0374686,
+        "latitude": 37.5436625
+      },
+      "destination": {
+        "longitude": 127.0379376,
+        "latitude": 37.5447009
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "10번출입구 정류장 → 사슴우리 주변",
+    "request": {
+      "origin": {
+        "longitude": 127.0374138,
+        "latitude": 37.5434398
+      },
+      "destination": {
+        "longitude": 127.0348065,
+        "latitude": 37.5428489
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "북서쪽 산책로 → 북쪽 서울숲길",
+    "request": {
+      "origin": {
+        "longitude": 127.0358,
+        "latitude": 37.5464
+      },
+      "destination": {
+        "longitude": 127.039,
+        "latitude": 37.5465
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "공원 중앙 → 남쪽 산책로",
+    "request": {
+      "origin": {
+        "longitude": 127.0405,
+        "latitude": 37.5445
+      },
+      "destination": {
+        "longitude": 127.0405,
+        "latitude": 37.5398
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "서울숲입구 교차로 → 북쪽 서울숲길",
+    "request": {
+      "origin": {
+        "longitude": 127.0442455,
+        "latitude": 37.5418543
+      },
+      "destination": {
+        "longitude": 127.043,
+        "latitude": 37.548
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "서울숲역 1번출구 → 사슴우리 주변",
+    "request": {
+      "origin": {
+        "longitude": 127.0450543,
+        "latitude": 37.5441431
+      },
+      "destination": {
+        "longitude": 127.0348065,
+        "latitude": 37.5428489
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "name": "서울숲역 2번출구 → 수변휴게실",
+    "request": {
+      "origin": {
+        "longitude": 127.0447881,
+        "latitude": 37.542999
+      },
+      "destination": {
+        "longitude": 127.0379376,
+        "latitude": 37.5447009
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00"
+    }
+  },
+  {
+    "expectedHttp": 404,
+    "request": {
+      "destination": {
+        "longitude": 127.039,
+        "latitude": 37.5465
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00",
+      "origin": {
+        "longitude": 127.035,
+        "latitude": 37.546
+      }
+    },
+    "expectedCode": "ROUTE_NOT_FOUND",
+    "name": "보행로에서 82m 떨어진 선택점"
+  },
+  {
+    "expectedHttp": 404,
+    "request": {
+      "destination": {
+        "longitude": 127.0408,
+        "latitude": 37.54
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00",
+      "origin": {
+        "longitude": 127.0405,
+        "latitude": 37.5445
+      }
+    },
+    "expectedCode": "ROUTE_NOT_FOUND",
+    "name": "보행로에서 51m 떨어진 선택점"
+  },
+  {
+    "expectedHttp": 422,
+    "request": {
+      "destination": {
+        "longitude": 127.043,
+        "latitude": 37.548
+      },
+      "departureAt": "2026-10-28T11:00:00+09:00",
+      "origin": {
+        "longitude": 127.02,
+        "latitude": 37.5445
+      }
+    },
+    "expectedCode": "OUTSIDE_SUPPORTED_AREA",
+    "name": "지원 지역 밖"
+  },
+  {
+    "expectedHttp": 422,
+    "request": {
+      "destination": {
+        "longitude": 127.043,
+        "latitude": 37.548
+      },
+      "departureAt": "2026-10-28T00:00:00+09:00",
+      "origin": {
+        "longitude": 127.0374,
+        "latitude": 37.5445
+      }
+    },
+    "expectedCode": "SHADE_TIME_UNSUPPORTED",
+    "name": "야간"
+  }
+]

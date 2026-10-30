@@ -46,14 +46,11 @@ Geoapify는 공개 데이터 기반이므로 국내 모든 상호·신축 건물
 # 기존 .env가 있으면 내용을 유지하고 새 항목만 추가합니다.
 test -f .env || cp .env.example .env
 # 편집기에서 GEOAPIFY_API_KEY를 설정합니다. 키를 명령행 인자로 넣지 않습니다.
-set -a
-source .env
-set +a
 docker compose up -d --wait
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-Spring Boot는 `.env`를 자동 로드하지 않습니다. 위 source는 본인이 작성한 로컬 파일을 대상으로 합니다. DB 이름·포트·비밀번호를 변경했다면 README의 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` 설정도 동일하게 적용합니다. CI는 키를 설정하지 않으며 테스트 프로필은 빈 키로 고정합니다.
+`local` 프로필은 프로젝트 루트의 `.env`를 properties 형식으로 자동 로드합니다. `KEY=value` 형태로 따옴표와 export 없이 작성하고 변경 후 서버를 재시작합니다. IntelliJ의 Working directory도 프로젝트 루트로 지정합니다. OS 환경 변수는 파일보다 우선하며 dev/prod는 이 파일을 자동 로드하지 않습니다. DB 이름·포트·비밀번호를 변경했다면 README의 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` 설정도 동일하게 적용합니다. CI는 키를 설정하지 않으며 테스트 프로필은 빈 키로 고정합니다.
 
 ```sh
 curl --get --include 'http://localhost:8080/api/v1/places/search' \

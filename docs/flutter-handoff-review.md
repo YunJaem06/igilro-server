@@ -3,6 +3,8 @@
 2026-10-29 장소 검색을 카카오 Local로 전환했습니다. **현재 설정·계약은 [카카오 장소 검색](kakao-place-search.md)**을 따릅니다. 아래 Geoapify 관련 설명과 검증 기록은 이전 공급자의 이력입니다. 같은 날 실제 키 등록·서버 재시작 후 장소명·주소 검색의 HTTP 200과 휴대폰 LAN 통신을 확인했습니다. 국내 검색 품질·기기 지도 핀 검증은 별도입니다.
 
 
+2026-10-29 추가: 일반/모델 경로 응답에 기존 필드를 유지하며 `routes[].guidance`를 추가했다. 앱은 nullable DTO로 받고 전체 경로의 진행 위치와 안내 단계의 누적 거리·geometryIndex를 연결할 수 있다. [길안내 계약·데이터 보완·응답 예시](walking-guidance.md), [모델 경로·그늘 구간](model-based-shade-prediction.md)이 최신 계약이다. 아래의 날짜가 붙은 과거 작업 기록은 당시 상태를 보존한다.
+
 참고 문서: Flutter 프로젝트의 `docs/server_handoff.md`(2026-10-24 장소 검색 클라이언트 반영)와 2026-10-25 장소 검색 서버 요청. 서버는 기반·fastest 경로·건물 그늘 평가에 더해 장소 검색 API를 구현했습니다. 최신 실행·검증 결과는 [장소 검색](place-search.md), [검증 기록](place-search-verification.md)을 참고합니다. 아래의 날짜가 붙은 이전 환경 기록은 당시 검증 근거로 보존합니다.
 
 ## Flutter 현재 상태와 바로 연결할 흐름
@@ -13,7 +15,7 @@
 - `API_BASE_URL`은 `/api/v1`이 없는 서버 origin입니다. development/staging/production은 서버 local/dev/prod에 대응하며 개발 외에는 HTTPS origin을 사용합니다.
 - 요청/응답은 `application/json`이며 연결·송신 10초, 수신 30초를 기준으로 합니다. 서버의 로컬 측정 기록은 아래 경로 계약과 [Phase 2 검증 기록](phase-2-verification.md)을 참고합니다.
 
-다음 연결 순서는 **Geoapify 서버 키 설정 → 장소명/주소 실검색 → 출처 표시와 선택 좌표 핀 확인 → 기존 좌표 기반 fastest 요청**입니다. 장소 검색은 대한민국, 경로는 서울숲 pilot로 구분하고 `OUTSIDE_SUPPORTED_AREA` 안내를 유지합니다. 실제 건물 자료 준비와 환경 경로 최적화는 후속 작업입니다.
+다음 연결 순서는 **Geoapify 서버 키 설정 → 장소명/주소 실검색 → 출처 표시와 선택 좌표 핀 확인 → 기존 좌표 기반 fastest 요청**입니다. 장소 검색은 대한민국, 경로는 서울숲 pilot로 구분하고 `OUTSIDE_SUPPORTED_AREA` 안내를 유지합니다. [shade 모드](phase-4-shade-routing.md)는 합성 자료로 검증했으며 서울숲 실제 자료에서는 낮에 503 SHADE_DATA_UNAVAILABLE입니다. 앱에 그늘 경로 제공 가능 상태를 표시하려면 실제 평가 구역 검증이 먼저 필요합니다.
 
 ## Flutter 아키텍처에 맞춘 경로 API 연결
 
@@ -84,10 +86,10 @@
 
 1. [Geofabrik 한국 extract](https://download.geofabrik.de/asia/south-korea.html)의 PBF에서 지역 XML을 추출하고 실제 보행 그래프를 적재하는 도구가 구현되어 있습니다. 데이터 파일은 Git에서 제외되므로 새 환경에서는 [준비·적재 절차](phase-2-routing.md)를 실행해야 합니다. 출처·체크섬·시각·버전을 기록하고 [OSM 공식 라이선스 안내](https://www.openstreetmap.org/copyright)에 따른 attribution을 제공합니다.
 2. snapping과 fastest 경로 탐색은 구현되어 있습니다. Flutter Phase 3에서 지도 선택 좌표를 연결하고 정상 경로, 지원 지역 밖, 연결 불가, 그래프 미적재 오류를 확인합니다. 장소 공급자 구현은 이 검증의 선행 조건이 아닙니다.
-3. 건물 Polygon은 [국토교통부 GIS건물통합정보](https://www.data.go.kr/data/15083092/fileData.do)를 수급 후보로 검토합니다. 공간 도형과 건축물 속성 자료를 제공하는 데이터이며, 실제 높이(m) 필드의 충족률·정확도·갱신 시점은 수급 후 확인해야 합니다. 층수를 검증된 높이로 간주하지 않습니다.
-4. 이후 환경 계산 단계에서 검증된 높이·건물 도형·태양 위치·평가 시각으로 그림자를 계산하고 shade/sunlight 모드를 추가합니다. 조용함·밝기·비 회피 자료와 복수 조건·가중치는 별도 모델로 확장합니다.
+3. GIS/HUB 공공 건물 14,075개와 직접 높이 5,585개를 적재했습니다. 미확인 높이·건물 형상 차이·주변 상한이 남아 [실제 평가 구역](shade-pilot-area-2026-10-26.md)은 보류합니다. 층수를 검증된 높이로 간주하지 않습니다.
+4. [그늘 평가](phase-3-shade.md)와 [shade 모드](phase-4-shade-routing.md)를 합성 자료로 검증했습니다. 지상 그래프 검증과 실제 건물 품질 확보 후 실제 제공을 검증해야 합니다. sunlight, 조용함·밝기·비 회피 자료와 복수 조건·가중치는 후속 모델입니다.
 
-Phase 1 이후 Phase 2의 구현과 실제 데이터 검증은 [검증 기록](phase-2-verification.md)에 정리했습니다. 건물·높이 데이터의 품질을 확인한 뒤 기존 fastest 경로에 그늘 비율을 계산하고, 이를 검증한 다음 shade/sunlight 경로 탐색으로 확장합니다.
+Phase 1 이후 Phase 2의 실제 데이터 검증은 [기존 기록](phase-2-verification.md), 2026-10-27의 구현·합성 테스트와 실제 데이터 보류 사유는 [Phase 4 기록](phase-4-shade-routing.md)에 정리했습니다.
 
 ## 2026-10-19 현재 작업 환경 재확인
 

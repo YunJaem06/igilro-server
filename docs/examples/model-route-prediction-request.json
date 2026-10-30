@@ -1,0 +1,12 @@
+{
+  "origin": {
+    "longitude": 127.0374,
+    "latitude": 37.5445
+  },
+  "destination": {
+    "longitude": 127.043,
+    "latitude": 37.548
+  },
+  "departureAt": "2026-10-28T11:00:00+09:00",
+  "mode": "shade"
+}

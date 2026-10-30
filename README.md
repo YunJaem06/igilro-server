@@ -1,6 +1,8 @@
 # 이길로 서버
 
-사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. Phase 1 기반 위에 실제 OSM 보행 그래프 적재·fastest 경로, 건물 자료 적재·기존 경로의 그늘 평가와 카카오 Local 기반 한국 장소명·주소 검색을 구현했습니다. 그늘 우선 경로 최적화는 다음 단계입니다.
+사용자의 환경과 상황에 맞는 보행 경로를 추천하는 서비스의 서버입니다. 실제 OSM fastest 경로, 건물 그늘 평가, 검증된 건물 자료에서 작동하는 shade 경로 최적화와 카카오 Local 기반 한국 장소명·주소 검색을 구현했습니다. **별도의 공공 3D 모델 기반 예측 API**는 서울숲 주요 산책로·출입 지점의 경로와 지도에 표시할 그늘/햇빛 구간을 제공합니다. 직접 높이 기반 그늘 수치는 별도로 검증합니다. [예측 API·범위·구간 계약](docs/model-based-shade-prediction.md), [공공 원본 대조](docs/public-spatial-pilot-2026-10-27.md)를 참고합니다.
+
+일반/모델 경로에 [보행 길안내 단계](docs/walking-guidance.md)를 추가했습니다. 실제 보행 분기와 원본 횡단 태그를 사용하고, 기존 경로선·거리·시간·그늘 응답은 유지합니다.
 
 ## 기술 구성
 
@@ -21,12 +23,24 @@ Java 21과 Docker Desktop이 필요합니다. Docker Desktop을 실행한 후 �
 ```bash
 docker version
 docker compose version
-cp .env.example .env
+cp -n .env.example .env
 docker compose up --build -d --wait
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-`.env`는 Compose 설정입니다. Spring Boot는 이 파일을 자동으로 읽지 않습니다. 기본 DB 이름·계정·포트를 그대로 쓰면 위 명령으로 실행됩니다. 변경한 경우 아래처럼 서버에도 동일한 값을 전달합니다.
+`local` 프로필과 Compose는 프로젝트 루트의 `.env`를 읽습니다. IntelliJ의 Working directory도 프로젝트 루트로 지정합니다. `.env`는 Git에서 제외되고 `.env.example`에는 빈 키와 개발용 기본값만 보관합니다. 파일이 없으면 기존 기본값으로 시작하며, OS 환경 변수가 있으면 파일보다 우선합니다. `dev`/`prod`는 `.env`를 자동으로 읽지 않습니다.
+
+발급받은 키는 `.env`의 아래 항목에 따옴표 없이 넣고 서버를 다시 시작합니다. IntelliJ 환경 변수에 별도로 복사할 필요는 없습니다.
+
+```dotenv
+VWORLD_API_KEY=발급받은_브이월드_키
+VWORLD_DOMAIN=키_발급시_등록한_URL
+BUILDING_HUB_API_KEY=발급받은_건축HUB_키
+```
+
+건물 공급자 수집은 Python 도구의 명시적인 실행으로 진행하며 키를 저장하는 것만으로 시작되지 않습니다. 브이월드 도메인은 발급 시 등록한 값이 필요한 경우에 설정합니다. `SHADE_GROUND_VERIFIED_DATASETS`는 지상 보행 맥락을 검증한 그래프 버전 목록이며 현재는 비워 둡니다. [검증 조건과 그늘 경로 설정](docs/phase-4-shade-routing.md)을 참고합니다.
+
+기본 DB 이름·계정·포트는 그대로 쓰면 됩니다. DB를 변경한 경우 `.env`의 Compose 설정과 함께 서버의 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`도 맞춥니다. 이 세 값도 `.env`에 보관할 수 있습니다. 또는 아래처럼 실행 환경으로 전달합니다.
 
 ```bash
 DB_URL=jdbc:postgresql://localhost:55432/igilro \
@@ -39,6 +53,8 @@ DB_USERNAME=igilro DB_PASSWORD=local_custom_password \
 | 확인 항목 | 주소 |
 | --- | --- |
 | 실제 도보 경로 검색 | `POST http://localhost:8080/api/v1/routes/search` |
+| 실험적 3D 모델 기반 경로 예측 | `POST http://localhost:8080/api/v1/routes/predictions/search` |
+| 예측 검색 범위·연결된 보행망 | `GET http://localhost:8080/api/v1/routes/predictions/coverage` |
 | 한국 장소명·주소 검색 | `GET http://localhost:8080/api/v1/places/search?query=서울숲` |
 | 서비스 및 공간 DB 상태 | `GET http://localhost:8080/api/v1/health` |
 | 종합 상태 | `GET http://localhost:8080/actuator/health` |
@@ -200,6 +216,12 @@ prod의 자동 Flyway는 비활성화입니다. 운영 DB 관리자가 PostGIS�
 - [실제 보행 경로 실행·설계](docs/phase-2-routing.md)
 - [Phase 2 데이터·성능 검증](docs/phase-2-verification.md)
 - [Phase 3 건물 자료·그늘 평가](docs/phase-3-shade.md)
+- [서울숲 공공 건물 수집·적재 및 실제 그림자 진단](docs/public-building-verification-2026-10-26.md)
+- [누락 높이·PK 매칭 및 OSM 도형 교차 검증](docs/building-matching-verification-2026-10-26.md)
+- [실제 건물 검수 지도 생성·실행](docs/building-review-map.md)
+- [작은 평가 구역 후보·50m 실제 경로 검증](docs/shade-pilot-area-2026-10-26.md)
+- [Phase 4 그늘 경로 최적화·검증](docs/phase-4-shade-routing.md)
+- [서울숲 50m 현장 확인 지정·공공 원본 재검증](docs/pilot-field-review-2026-10-27.md)
 - [초기 분석·변경 내역·검증 결과](docs/phase-1-verification.md)
 
-다음 단계는 장소 공급자 키/국내 품질 및 Flutter 출처 표시 검증, 보행 데이터 품질 보완, 실제 건물·높이 자료 수급과 현장 검증, 그늘 우선 경로와 기타 환경 점수·복수 조건 가중치입니다. 미지원 기능의 빈 API나 샘플 성공 응답은 만들지 않습니다.
+다음 단계는 실제 건물 목록·직접 높이·주변 상한과 지상 보행 맥락을 검증해 shade 평가 구역을 확보하는 작업입니다. 장소 공급자 키/국내 품질과 Flutter 출처 표시, 보행 데이터 품질, 기타 환경 점수·복수 조건 가중치 검증도 남아 있습니다.

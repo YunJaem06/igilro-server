@@ -4,7 +4,7 @@
 
 Flutter의 `API_BASE_URL`에는 origin만 넣습니다. 기본 서버 origin은 `http://localhost:8080`이며 `/api/v1`은 각 endpoint 경로에 포함합니다. 요청과 일반 API 응답은 JSON이며 `Accept: application/json`, 본문이 있는 요청은 `Content-Type: application/json`을 사용합니다.
 
-현재 앱용 endpoint는 `GET /api/v1/health`, `POST /api/v1/routes/search`입니다. 장소 검색은 미구현입니다. [실제 경로 검색 계약과 실행 방법](phase-2-routing.md)을 참고합니다.
+현재 앱용 endpoint는 `GET /api/v1/health`, `POST /api/v1/routes/search`, `GET /api/v1/places/search`입니다. 별도 실험 API `POST /api/v1/routes/predictions/search`는 공공 3D 모델 기반 예측을 제공합니다. [실제 경로 검색](phase-2-routing.md), [직접 높이 그늘 계약](phase-4-shade-routing.md), [모델 기반 예측 계약·실제 응답](model-based-shade-prediction.md)을 참고합니다. 예측의 `modeledShadeRatio`를 기존 `metrics.shadeRatio`로 취급하지 않습니다. 예측 자료가 미설정이면 새 API만 503 `PREDICTION_DATA_UNAVAILABLE`입니다.
 
 DTO 연동용 [요청 JSON](examples/route-search-fixture-request.json), [건물 자료 없는 성공 응답](examples/route-search-fixture-response.json), [그늘 평가 가능한 성공 응답](examples/route-search-fixture-response-shade-available.json)은 현재 서버에서 합성 자료로 실제 캡처한 예시입니다. snapping과 두 attribution의 위치·타입·null 규칙은 [Phase 2의 전체 예시 설명](phase-2-routing.md)에 정리했습니다.
 
@@ -68,6 +68,8 @@ Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type:
 
 ## 경로 업무 코드
 
+공공 모델 예측은 별도 `POST /api/v1/routes/predictions/search`를 사용합니다. 전체 비율과 `routes[].shadeSegments`의 연속된 `SHADE`/`SUNLIGHT` GeoJSON 구간을 제공합니다. `GET /api/v1/routes/predictions/coverage`에서 현재 bounds·실제 제공 보행망·출입 지점·연결성 통계·최대 스냅 거리 50m를 조회합니다. 앱에 과거 300m 실험 범위를 고정하지 않습니다. 구간 누적 거리, DTO, 실제 캡처는 [모델 예측 계약](model-based-shade-prediction.md)에 있습니다. 기존 직접 높이 API의 `metrics`·`shadeEvaluation`과 혼합하지 않습니다.
+
 Phase 2 경로 검색은 아래 업무 코드를 구현했습니다. 요청 제한 기능은 아직 미구현입니다.
 
 | HTTP | code | 적용 범위 |
@@ -77,10 +79,17 @@ Phase 2 경로 검색은 아래 업무 코드를 구현했습니다. 요청 제�
 | 404 | `ROUTE_NOT_FOUND` | 사용 가능한 데이터와 지역 안에서 연결 가능한 보행 경로 없음 |
 | 429 | `TOO_MANY_REQUESTS` | 요청 제한 도입 시 적용, 재시도 가능 시 Retry-After 제공 |
 | 503 | `ROUTING_DATA_UNAVAILABLE` | 경로 그래프·필수 경로 데이터 준비되지 않음 |
+| 503 | `SHADE_DATA_UNAVAILABLE` | shade의 기준/후보 구간 전체를 같은 자료로 평가할 수 없거나 지상 보행 그래프 미검증 |
+| 422 | `SHADE_TIME_UNSUPPORTED` | shade 요청 시 밤·낮은 태양 고도·지원 연도 밖 |
+| 503 | `ROUTE_SEARCH_LIMIT_EXCEEDED` | 그늘 후보 구간 수·탐색 자원 제한 초과. 불완전한 탐색 결과를 성공으로 반환하지 않음 |
 
 모르는 URL의 404 `NOT_FOUND`와 실제 검색 실패인 404 `ROUTE_NOT_FOUND`를 구분합니다. 지원 지역 안에서 최대 50m의 후보 보행 구간에 연결하지 못하거나 경로가 없으면 ROUTE_NOT_FOUND입니다. 지역은 [Phase 2 문서](phase-2-routing.md)의 서울숲 pilot입니다. 장소 검색의 빈 결과는 별개 계약인 200 `places: []`입니다.
 
+서비스 지역이 겹치면 출발·도착을 모두 포함하는 가장 작은 bounds의 활성 그래프를 사용합니다. 소구역을 벗어나면 넓은 지역을 선택하지만, 선택한 소구역의 단절·그늘 자료 부족을 넓은 그래프로 자동 우회하지 않습니다. 소구역 데이터 준비와 실제 활성화는 [현장 검토 기록](pilot-field-review-2026-10-27.md)을 참고합니다.
+
 ## 경로 좌표·단위·시각 규칙
+
+2026-10-29부터 두 경로 검색 API는 기존 필드에 더해 `routes[].guidance`를 제공한다. 실제 선택한 방향별 간선 기록에서 출발·갈림길·횡단·도착 단계를 만들고, 안내 좌표·전체 geometry 인덱스·누적 거리·다음 단계 거리/시간을 제공한다. 요청을 변경하지 않으며 경로 geometry·거리·시간·그늘 수치를 유지한다. `crossing.trafficSignals`는 원본에 명시된 설치 여부이고 null은 미확인이다. 상세 DTO와 기존 DB 보완 정책은 [보행 길안내](walking-guidance.md)를 참고한다.
 
 | 항목 | 기준 |
 | --- | --- |
@@ -98,7 +107,7 @@ Phase 2 경로 검색은 아래 업무 코드를 구현했습니다. 요청 제�
 
 GeoJSON 좌표는 도(degree) 단위이므로 미터 거리 계산에는 `geography` 또는 적절한 투영 좌표계를 사용합니다. 그림자와 보행 구간의 교차 길이도 일관된 미터 단위 좌표계에서 계산합니다. 그늘 비율은 그림자 영역을 합집합 처리한 뒤 `그늘과 겹치는 보행 길이 / 전체 보행 길이`로 평가하며 높이 누락과 자료 품질을 함께 기록합니다.
 
-현재 모델의 거리·시간은 스냅 지점 사이의 네트워크 경로를 기준으로 합니다. 접근 거리와 실제 끝점을 snapping으로 함께 제공합니다. 보행 1.4m/s·계단 0.9m/s의 정적 모델이며 신호 대기는 포함하지 않습니다. travelMode/mode는 walking/fastest만 지원하고 생략하면 기본값을 사용합니다. unknown field는 400으로 거부합니다. dataVersion은 데이터 스냅샷, timeModelVersion은 시간 비용 모델, routingModelVersion은 탐색·snapping 정책 버전입니다. 경로 ID는 응답 내 식별자이며 저장·상세 조회는 미지원입니다.
+현재 모델의 거리·시간은 스냅 지점 사이의 네트워크 경로를 기준으로 합니다. 접근 거리와 실제 끝점을 snapping으로 함께 제공합니다. 보행 1.4m/s·계단 0.9m/s의 정적 모델이며 신호 대기는 포함하지 않습니다. travelMode는 walking, mode는 fastest/shade이며 생략하면 walking/fastest입니다. shade는 같은 스냅 지점의 실제 fastest 시간보다 30% 이내에서 햇빛 노출 시간을 최소화합니다. unknown field는 400으로 거부합니다. dataVersion은 데이터 스냅샷, timeModelVersion은 시간 비용 모델, routingModelVersion은 탐색·snapping 정책 버전입니다. 경로 ID는 응답 내 식별자이며 저장·상세 조회는 미지원입니다.
 
 Flutter 전달 예시에 더해 현재 응답은 baselineDurationSeconds, timeModelVersion, routingModelVersion, snapping, attribution을 제공합니다. 연동 시 Flutter DTO의 추가 필드 처리 정책을 확인하고, 실제 경로 끝점·접근 거리와 OSM 출처 표시를 반영합니다. shadeRatio/quietScore/lightingScore의 향후 0..1 비율·점수 규칙은 개수 필드인 trafficSignalCount에는 적용하지 않습니다.
 
@@ -106,4 +115,4 @@ Flutter 전달 예시에 더해 현재 응답은 baselineDurationSeconds, timeMo
 
 기존 fastest 경로의 metrics.shadeRatio를 건물 도형·높이와 evaluatedAt 기준으로 계산합니다. routes[].shadeEvaluation에 status, coverage, dataVersion, modelVersion, attribution, solarAltitudeDegrees를 추가합니다. 건물 버전·출처는 이 객체에 제공하며 최상위 dataVersion/attribution은 기존 보행 그래프/OSM 계약을 유지합니다.
 
-전체 경로 커버리지가 1인 AVAILABLE에서만 shadeRatio를 제공합니다. DATA_UNAVAILABLE, INCOMPLETE_COVERAGE, NIGHT, LOW_SUN, UNSUPPORTED_TIME에서는 null입니다. 확인된 그늘 없음만 0이며 밤을 1로 표시하지 않습니다. 환경 자료가 없어도 유효한 fastest 경로는 200입니다. 출발 시각에 고정된 한국 pilot의 평면 건물 그림자 모델이며 이동 중 시간·구름·나무·지형은 미반영입니다. 다른 세 metric은 계속 null이고 shade/sunlight mode는 아직 미지원입니다. 상세 상태·커버리지·입력 형식은 [그늘 평가 문서](phase-3-shade.md)를 참고합니다.
+전체 경로 커버리지가 1인 AVAILABLE에서만 shadeRatio를 제공합니다. DATA_UNAVAILABLE, INCOMPLETE_COVERAGE, NIGHT, LOW_SUN, UNSUPPORTED_TIME에서는 null입니다. 확인된 그늘 없음만 0이며 밤을 1로 표시하지 않습니다. 환경 자료가 없어도 유효한 fastest 경로는 200입니다. 출발 시각에 고정된 한국 pilot의 평면 건물 그림자 모델이며 이동 중 시간·구름·나무·지형은 미반영입니다. 다른 세 metric은 계속 null입니다. shade mode는 평가 가능한 자료에서 지원하며 sunlight는 미지원입니다. 상세 상태·커버리지·입력 형식은 [그늘 평가 문서](phase-3-shade.md), 최적화와 추가 오류는 [그늘 경로 문서](phase-4-shade-routing.md)를 참고합니다.

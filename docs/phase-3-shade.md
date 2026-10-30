@@ -2,9 +2,9 @@
 
 ## 구현 범위
 
-기존 `POST /api/v1/routes/search`의 fastest 경로에 출발 시각 기준의 건물 그늘 비율을 추가합니다. 건물 도형·실측 높이·자료 범위를 GeoJSON으로 적재한 경우에 계산합니다. 기본 경로의 형상·거리·시간과 mode 계약은 유지하며, shade/sunlight 경로 최적화는 다음 단계입니다.
+기존 `POST /api/v1/routes/search`의 fastest 경로에 출발 시각 기준의 건물 그늘 비율을 추가합니다. 건물 도형·직접 높이·자료 범위를 GeoJSON으로 적재한 경우에 계산합니다. fastest 기본 동작은 유지하며, 평가 가능한 건물 자료에서 사용하는 shade 최적화는 [Phase 4](phase-4-shade-routing.md)에 정리합니다. sunlight는 미지원입니다.
 
-실제 서울숲 건물·높이 자료를 이 저장소에 포함하거나 적재한 상태는 아닙니다. 새 DB에는 건물 자료가 없으므로 낮의 shadeRatio는 null이며 상태는 DATA_UNAVAILABLE입니다. 테스트 fixture는 합성 도형이며 실제 건물·서비스 품질의 근거가 아닙니다.
+2026-10-26 로컬 개발 DB에는 OSM 원본 대조 후 GIS/HUB 공공 건물 14,075개를 적재했습니다. 직접 높이 5,585개, 높이 미확인 8,490개이며 목록 완전성과 최대 높이를 검증하지 못해 낮에는 INCOMPLETE_COVERAGE, shadeRatio=null입니다. 이전 OSM 1,324개 버전은 비교용으로 보관합니다. 원본·적재 파일은 Git에서 제외하는 data/ 아래에 보관하며 새 DB에는 자동으로 들어가지 않습니다. [공공 건물 매칭 검증](building-matching-verification-2026-10-26.md), [작은 구역 조사](shade-pilot-area-2026-10-26.md)를 참고합니다. 합성 테스트 fixture는 실제 건물·서비스 품질의 근거가 아닙니다.
 
 ## 응답 추가
 
@@ -15,7 +15,7 @@
 | status | 아래 평가 상태 |
 | coverage | 전체 경로 중 건물 목록·높이·주변 범위를 확인할 수 있는 길이 비율(0..1). 미평가/자료 없음은 null |
 | dataVersion | 건물 파일 SHA-256으로 만든 버전. 최상위 dataVersion은 보행 그래프 버전을 유지 |
-| modelVersion | `building-prism-v1-noaa-departure-5179-minsun5` |
+| modelVersion | `building-prism-v2-noaa-5179-minsun5-height-source` |
 | attribution | 건물 자료 출처. 최상위 OSM attribution과 함께 앱에서 표시 |
 | solarAltitudeDegrees | 기준 위치·출발 시각의 기하학적 태양 고도(도) |
 
@@ -36,7 +36,7 @@ quietScore/lightingScore/trafficSignalCount는 계속 null입니다. 그늘 자�
 2. 일정 높이의 수직 건물에 `높이 / tan(태양 고도)`를 적용해 태양 반대 방향으로 그림자를 만듭니다. EPSG:5179 미터 좌표계에서 기준 위치의 진북/진동 방향을 지도 격자 방향으로 변환합니다.
 3. 원래 도형, 이동한 도형, 경계 선분의 이동 면을 합칩니다. [ST_DumpSegments](https://postgis.net/docs/ST_DumpSegments.html)와 [ST_UnaryUnion](https://postgis.net/docs/ST_UnaryUnion.html)으로 오목한 도형·안뜰을 보존하고 중복 그림자는 한 번만 계산합니다. convex hull로 빈 공간을 그늘로 채우지 않습니다.
 4. 완전한 건물 목록의 coverage를 최대 그림자 길이만큼 안쪽으로 축소합니다. 이 길이는 검증된 최대 높이 상한과 태양 고도로 계산하며 투영 오차를 위한 0.1% 여유를 둡니다. 경계 밖 미확인 건물의 그림자를 무시하지 않기 위한 보수적인 범위입니다.
-5. 높이가 null인 건물은 최대 높이 상한으로 가능한 그림자를 계산하고 평가 범위에서 제외합니다. 건물 목록이 불완전하면 커버리지 0입니다. 전체 경로를 평가할 때만 shadeRatio를 제공합니다.
+5. 높이가 null이거나 높이 출처가 LEVEL_ESTIMATED/UNKNOWN인 건물은 최대 높이 상한으로 가능한 그림자를 계산하고 평가 범위에서 제외합니다. ACTUAL/OSM의 직접 높이만 그림자 산출에 사용합니다. 건물 목록이 불완전하면 커버리지 0입니다. 전체 경로를 평가할 때만 shadeRatio를 제공합니다.
 6. 경로를 선분별로 교차시켜 같은 좌표를 다시 통과하는 경로의 길이도 보존합니다. 1μm 또는 전체 길이의 1e-9 이내 오차만 전체 커버리지로 간주합니다.
 
 한국 pilot의 평평한 지면, 출발 시각에 고정된 태양, 수직 건물과 평평한 지붕을 가정합니다. 이동 중 시간 변화, 지형·기저 고도, 교량·터널·실내, 나무, 구름과 실제 일사량, 지붕 모양, 대기 굴절은 미반영입니다. 한국 범위(경도 124..132, 위도 33..39), 각 축 0.1도 이하 자료만 적재하며 현장 관측 정확도를 주장하지 않습니다.
@@ -54,10 +54,23 @@ UTF-8 GeoJSON FeatureCollection, 20MB·25,000개 건물·전체 좌표 250,000�
 | sourceTimestamp | 자료 기준 시각, 오프셋 필수 |
 | attribution | 공급자 조건에 맞는 출처 표시 문구 |
 | inventoryComplete | coverage 안의 **전체 건물 목록**을 확인한 경우에만 true. false도 적재하지만 ratio는 미제공 |
-| maximumHeightMeters | 자료 범위 안 모든 건물 높이의 검증된 상한(m), 0 초과 500 이하. 알려진 건물의 최댓값만으로 미확인 건물의 상한을 보장하지 않음 |
+| maximumHeightMeters | 자료 범위 안 모든 건물 높이의 검증된 상한(m), 0 초과 500 이하. 알려진 건물의 최댓값만으로 미확인 건물의 상한을 보장하지 않음. 검증된 상한이 없는 경우 inventoryComplete=false인 자료에서만 null/생략 허용 |
 | coverage | 건물 목록 조사 범위의 GeoJSON Polygon/MultiPolygon |
 
-각 Feature는 문자열 id, geometry, properties.heightMeters를 가집니다. 높이를 확인하지 못하면 null 또는 생략합니다. 층수에 임의 층고를 곱하지 않습니다. 실제 건물 기저부터 상단까지의 미터 단위 높이를 사용합니다. 원본 자료의 필드·단위·도형·목록 완전성·최대 높이 상한을 검증한 뒤 변환해야 합니다. 공급자별 수집·변환과 실제 서울숲 자료의 품질 검증은 별도 작업입니다.
+각 Feature는 문자열 id, geometry와 아래 properties를 가집니다. 높이를 확인하지 못하면 null 또는 생략합니다. 층수에 임의 층고를 곱하지 않습니다. 원본 자료의 필드·단위·도형·목록 완전성·최대 높이 상한을 검증한 뒤 변환해야 합니다.
+
+| properties 필드 | 의미 |
+| --- | --- |
+| heightMeters | 지면에서 건물 상단까지의 미터 단위 높이 또는 null |
+| heightSource | ACTUAL: 공공 원본의 직접 높이, LEVEL_ESTIMATED: 층수 기반 추정, OSM: OSM height 값, UNKNOWN: 높이 또는 출처 미확인 |
+| source / sourceId | 건물 형상의 원본 URL/식별자와 원본 건물 ID |
+| heightSourceReference / heightSourceId | 높이의 원본 URL/식별자와 원본 레코드 ID. 형상 출처와 독립적으로 저장 |
+
+UNKNOWN 외의 높이는 수치와 두 종류의 원본 출처/ID가 필요합니다. 높이 종류를 생략하면 UNKNOWN이며 숫자가 있어도 직접 높이로 취급하지 않습니다. V5 migration 이전 숫자는 보존하지만 출처는 UNKNOWN으로 둡니다. 출처를 확인한 파일을 새 버전으로 재적재해야 합니다. knownHeightCount는 숫자가 있는 건물 수이며, 실제 높이의 정확도나 경로 커버리지를 의미하지 않습니다. ACTUAL이라는 분류도 원본 정확도를 보증하지 않으며 공공자료 품질 검증이 필요합니다.
+
+현재 LEVEL_ESTIMATED 수치를 만드는 정책은 구현하지 않았습니다. 향후 추정치를 저장해도 직접 높이와 같은 그늘 산출 입력으로 쓰지 않습니다. 이 적격성 구분을 modelVersion v2에 반영했습니다. 과거 전체 응답 예시의 v1은 당시 합성 자료로 캡처한 기록입니다.
+
+2026-10-26부터 전체 건물 목록이나 최대 높이를 검증하지 못한 실제 원본도 `inventoryComplete=false`, `maximumHeightMeters=null`로 보관할 수 있습니다. 이 자료는 낮 시간에 `INCOMPLETE_COVERAGE`, `coverage=0`, `shadeRatio=null`을 반환하며 그림자 공간 연산 대상에서 제외합니다. 높이가 있는 일부 건물만으로 전체 경로 점수를 계산하지 않습니다. 완전한 목록의 적재 조건과 기존 API 응답 형식은 유지합니다.
 
 전체 입력 형식은 [합성 테스트 fixture](../src/test/resources/shade/buildings.geojson)를 참고합니다. 이 fixture를 실제 서비스 자료로 사용하지 않습니다.
 
@@ -96,4 +109,4 @@ Windows에서 공식 Temurin Java 21을 프로젝트의 무시되는 .gradle 임
 
 기본 Windows 임시 경로의 Java Unix-domain socket 연결이 실패해 테스트 프로세스에만 `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=C:\Windows\Temp`를 적용했습니다. 프로젝트의 Java 21 toolchain·서버 실행 설정은 유지했습니다.
 
-검증에는 합성 건물·보행 도형만 사용했습니다. 서울숲 실제 건물 자료 적재, 현장 정확도, 실제 자료 크기에서의 성능과 shade/sunlight 경로 최적화는 아직 검증 범위에 포함되지 않습니다.
+위 2026-10-19 검증에는 합성 건물·보행 도형만 사용했습니다. 이후 [2026-10-26 공공 자료 검증](public-building-verification-2026-10-26.md)에서 GIS/HUB 연동, 실제 건물 14,075개 적재와 직접 높이의 그림자 교차 진단을 진행했습니다. 실제 자료의 전체 그늘 비율·현장 정확도는 아직 검증하지 못했습니다. 2026-10-27의 합성 자료 기반 그늘 경로 탐색 검증은 [Phase 4](phase-4-shade-routing.md)에서 구분합니다.
