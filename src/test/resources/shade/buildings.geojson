@@ -16,7 +16,7 @@
     {
       "type": "Feature",
       "id": "fixture:building-1",
-      "properties": {"heightMeters": 20},
+      "properties": {"heightMeters": 20, "heightSource": "ACTUAL", "source": "synthetic-test-fixture", "sourceId": "fixture:building-1", "heightSourceReference": "synthetic-height-fixture", "heightSourceId": "fixture:height-1"},
       "geometry": {
         "type": "Polygon",
         "coordinates": [[[127.0308,37.53995],[127.0311,37.53995],[127.0311,37.54005],[127.0308,37.54005],[127.0308,37.53995]]]

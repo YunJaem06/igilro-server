@@ -73,7 +73,7 @@ class BuildingShadeIntegrationTest {
 
     @Test
     fun `unknown height and incomplete inventories do not return a fabricated shade ratio`() {
-        importer.execute(dataset.copy(buildings = dataset.buildings.map { it.copy(heightMeters = null) }))
+        importer.execute(dataset.copy(buildings = dataset.buildings.map { it.copy(heightMeters = null, heightSource = BuildingHeightSource.UNKNOWN) }))
         val unknown = evaluate()
         assertEquals(ShadeStatus.INCOMPLETE_COVERAGE, unknown.status)
         assertNull(unknown.ratio)
@@ -82,6 +82,22 @@ class BuildingShadeIntegrationTest {
         importer.execute(incomplete)
         assertEquals(0.0, evaluate().coverage)
         assertNull(evaluate().ratio)
+    }
+
+    @Test
+    fun `incomplete source without a height bound stays unevaluable and reimports safely`() {
+        val incomplete = dataset.copy(inventoryComplete = false, maximumHeightMeters = null)
+        assertFalse(importer.execute(incomplete).reused)
+        assertTrue(importer.execute(incomplete).reused)
+        val result = evaluate()
+        assertEquals(ShadeStatus.INCOMPLETE_COVERAGE, result.status)
+        assertEquals(0.0, result.coverage)
+        assertNull(result.ratio)
+        assertEquals(incomplete.dataVersion, result.dataVersion)
+        assertEquals(incomplete.attribution, result.attribution)
+        assertFails { jdbc.update("UPDATE building_shade_dataset SET inventory_complete=true WHERE id=?", incomplete.dataVersion) }
+        assertFailsWith<IllegalArgumentException> { importer.execute(incomplete.copy(maximumHeightMeters = 20.0)) }
+        assertEquals(ShadeStatus.INCOMPLETE_COVERAGE, evaluate().status)
     }
 
     @Test
@@ -130,7 +146,31 @@ class BuildingShadeIntegrationTest {
         assertFalse(importer.execute(dataset).reused)
         assertTrue(importer.execute(dataset).reused)
         assertFailsWith<IllegalArgumentException> { importer.execute(dataset.copy(buildings = dataset.buildings.map { it.copy(heightMeters = 10.0) })) }
+        assertFailsWith<IllegalArgumentException> { importer.execute(dataset.copy(buildings = dataset.buildings.map { it.copy(heightSource = BuildingHeightSource.OSM) })) }
+        assertFailsWith<IllegalArgumentException> { importer.execute(dataset.copy(buildings = dataset.buildings.map { it.copy(sourceId = "another-original-id") })) }
+        assertFailsWith<IllegalArgumentException> { importer.execute(dataset.copy(buildings = dataset.buildings.map { it.copy(heightSourceId = "another-height-id") })) }
         assertEquals(dataset.dataVersion, evaluate().dataVersion)
+    }
+
+    @Test
+    fun `estimated and unclassified heights cannot stand in for direct source heights`() {
+        val direct = dataset.buildings.single()
+        importer.execute(dataset)
+        val ratio = evaluate().ratio
+        assertNotNull(ratio)
+        assertEquals("ACTUAL", jdbc.queryForObject("SELECT height_source FROM building_shade_footprint WHERE dataset_id=?", String::class.java, dataset.dataVersion))
+        for ((index, kind) in listOf(BuildingHeightSource.LEVEL_ESTIMATED, BuildingHeightSource.UNKNOWN).withIndex()) {
+            val digit = (index + 6).toString()
+            val version = "buildings-v1-" + digit.repeat(64)
+            importer.execute(dataset.copy(dataVersion=version, checksum=digit.repeat(64), buildings=listOf(direct.copy(heightSource=kind))))
+            assertEquals(ShadeStatus.INCOMPLETE_COVERAGE, evaluate().status)
+            assertNull(evaluate().ratio)
+        }
+        val osm = dataset.copy(dataVersion="buildings-v1-" + "8".repeat(64), checksum="8".repeat(64),
+            buildings=listOf(direct.copy(heightSource=BuildingHeightSource.OSM,source="synthetic-osm-fixture",sourceId="way/1")))
+        importer.execute(osm)
+        assertEquals(ratio, evaluate().ratio)
+        assertEquals("way/1", jdbc.queryForObject("SELECT source_id FROM building_shade_footprint WHERE dataset_id=?", String::class.java, osm.dataVersion))
     }
 
     @Test

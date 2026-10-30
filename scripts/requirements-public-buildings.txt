@@ -1,0 +1,2 @@
+# Collection uses the Python standard library. Only PostGIS validation needs this dependency.
+psycopg[binary]==3.3.6

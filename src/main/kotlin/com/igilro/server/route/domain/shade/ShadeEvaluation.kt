@@ -18,6 +18,6 @@ data class ShadeEvaluation(
     }
 
     companion object {
-        const val MODEL_VERSION = "building-prism-v1-noaa-departure-5179-minsun5"
+        const val MODEL_VERSION = "building-prism-v2-noaa-5179-minsun5-height-source"
     }
 }
