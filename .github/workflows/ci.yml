@@ -34,10 +34,18 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
-      - name: Verify PBF extraction with synthetic local fixtures
+      - name: Verify offline OSM, public spatial data and review-map inputs
         run: |
-          python -m pip install -r scripts/requirements-osm.txt
+          python -m pip install -r scripts/requirements-osm.txt -r scripts/requirements-spatial-audit.txt
           python -m unittest discover -s scripts/tests -v
+      - name: Set up Node.js for review-map annotation tests
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+      - name: Verify review-map JavaScript and annotation imports
+        run: |
+          node --check scripts/building-review/review.js
+          node --test scripts/building-review/notes.test.cjs
       - name: Build PostgreSQL/PostGIS image
         run: docker compose build postgres
       - name: Unit, architecture, integration tests and bootJar

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-__NONCE__'; style-src 'nonce-__NONCE__'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>이길로 · 서울숲 건물 검수</title>
+  <style nonce="__NONCE__">__STYLE__</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#" aria-label="이길로 건물 검수 홈"><span class="brand-mark">↗</span> 이길로 <span class="brand-divider"></span><span class="brand-sub">건물 데이터 검수</span></a>
+  <div class="top-actions"><span class="local-badge"><i></i> 로컬 스냅샷</span><button id="import-notes">메모 가져오기</button><button id="export-notes" class="button-dark">메모 내보내기 ↗</button></div>
+</header>
+<section class="intro">
+  <div><div class="eyebrow">SEOUL FOREST · DATA REVIEW</div><h1>서울숲, 건물부터 살펴보기</h1><p>실제 경로 주변의 높이와 건물 연결 근거를 확인하세요.</p></div>
+  <div class="snapshot-note"><span id="snapshot-time"></span><span>그늘 평가 미완료 · 검수 메모는 원본 높이를 바꾸지 않습니다.</span></div>
+</section>
+<section class="stats" aria-label="스냅샷 전체 통계">
+  <button data-quick="all"><span>전체 건물</span><strong id="count-all">—</strong><small>스냅샷 전체</small></button>
+  <button data-quick="known"><span><i class="dot known"></i>높이 확인</span><strong id="count-known">—</strong><small>공공 원본 직접 값</small></button>
+  <button data-quick="unknown"><span><i class="dot unknown"></i>높이 누락</span><strong id="count-unknown">—</strong><small>추가 자료 확인 필요</small></button>
+  <button data-quick="conflict"><span><i class="dot conflict"></i>매칭 충돌</span><strong id="count-conflicts">—</strong><small>먼저 살펴볼 건물</small></button>
+</section>
+<main class="workspace">
+  <aside class="sidebar" aria-label="건물 검색과 목록">
+    <div class="sidebar-heading"><h2>검토할 건물</h2><button id="route-focus" class="text-button">경로 주변 보기 ↗</button></div>
+    <label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="건물명, PNU, 대장 ID 검색" aria-label="건물명, PNU, 대장 ID 검색"></label>
+    <div class="filter-row"><label>상태<select id="status-filter"><option value="all">전체 상태</option><option value="unknown">높이 누락</option><option value="conflict">매칭 충돌</option><option value="known">높이 확인</option><option value="verified">PK 연결 확인</option></select></label><label><span id="radius-label">시험 경로와 거리</span><select id="radius-filter"><option value="100">100m 이내</option><option value="250">250m 이내</option><option value="500" selected>500m 이내</option><option value="all">전체 지역</option></select></label></div>
+    <label class="review-filter">내 검수 상태<select id="review-filter"><option value="all">전체</option><option value="unreviewed">미검토</option><option value="in_progress">검토 중</option><option value="needs_data">추가 자료 필요</option><option value="reviewed">검토 완료</option></select></label>
+    <div class="results-heading"><strong id="result-count">분석 중…</strong><span>충돌 → 높이 누락 → 거리 순</span></div>
+    <div id="building-list" class="building-list" aria-live="polite"></div>
+    <div id="empty-results" class="empty-results" hidden><strong>조건에 맞는 건물이 없어요.</strong><p>검색어나 상태·거리 조건을 바꿔 보세요.</p><button id="clear-filters">필터 초기화</button></div>
+    <nav class="pagination" aria-label="건물 목록 페이지"><button id="previous-page" aria-label="이전 페이지">←</button><span id="page-label"></span><button id="next-page" aria-label="다음 페이지">→</button></nav>
+  </aside>
+  <section class="map-panel" aria-label="서울숲 건물 지도">
+    <canvas id="map" tabindex="0" aria-label="건물 검수 지도. 드래그로 이동, 휠이나 확대 버튼으로 확대, 건물을 클릭하면 상세 정보를 확인합니다."></canvas>
+    <div class="map-caption"><span class="map-caption-icon">↗</span><div><strong id="route-title">시험 보행 경로</strong><span id="route-summary"></span></div></div>
+    <div id="pilot-controls" class="pilot-controls" hidden><label>작은 평가 구역 후보<select id="pilot-select" aria-label="작은 평가 구역 후보"><option value="">기존 시험 경로</option></select></label><div id="pilot-summary" hidden></div></div>
+    <div class="map-tools"><button id="zoom-in" aria-label="지도 확대">＋</button><button id="zoom-out" aria-label="지도 축소">−</button><button id="fit-all" aria-label="전체 건물 범위 보기">⌖</button></div>
+    <div id="map-loading" class="map-loading">건물과 경로를 준비하고 있습니다…</div>
+    <div class="map-bottom"><div class="legend"><span><i class="dot known"></i>높이 확인</span><span><i class="dot unknown"></i>높이 누락</span><span><i class="dot conflict"></i>충돌</span><span><i class="line-symbol"></i>보행 경로</span></div><span id="map-scale"></span></div>
+    <div class="map-attribution">건물: 국토교통부 GIS건물통합정보 / 건축HUB · 도로: © OpenStreetMap contributors · 외부 배경지도 없음</div>
+    <aside id="inspector" class="inspector" aria-label="선택 건물 상세" hidden>
+      <div class="inspector-top"><span class="eyebrow">BUILDING DETAIL</span><button id="close-inspector" aria-label="건물 상세 닫기">✕</button></div>
+      <h2 id="detail-name"></h2><div id="detail-badges" class="detail-badges"></div>
+      <div id="overlap-info" class="overlap-info" hidden><span id="overlap-label"></span><button id="next-overlap">다음 도형 보기</button></div>
+      <div class="height-card"><span>현재 선택 높이</span><div><strong id="detail-height"></strong><span id="detail-height-unit"></span></div><small id="detail-height-provider"></small></div>
+      <div id="detail-reason" class="reason-card"></div>
+      <section class="detail-section"><h3>건물 연결 근거</h3><dl id="detail-identifiers"></dl></section>
+      <section class="detail-section"><h3>두 원본 비교</h3><div id="source-comparison"></div></section>
+      <details class="source-details"><summary>원본 식별자와 자료 기준 보기</summary><dl id="detail-provenance"></dl></details>
+      <section class="detail-section review-section"><h3>내 검수 메모</h3><label>검수 상태<select id="note-status"><option value="unreviewed">미검토</option><option value="in_progress">검토 중</option><option value="needs_data">추가 자료 필요</option><option value="reviewed">검토 완료</option></select></label><label>확인한 내용<textarea id="note-text" rows="4" maxlength="2000" placeholder="예: 같은 필지의 다른 동으로 보여 주소·형상 추가 대조 필요"></textarea></label><div class="note-bottom"><span id="note-save-state"></span><button id="save-note" class="button-dark">메모 저장</button></div><p>이 브라우저에 저장됩니다. JSON으로 내보내 다른 환경에 보관할 수 있습니다.</p></section>
+    </aside>
+  </section>
+</main>
+<footer class="page-footer"><span id="version-label"></span><span>주변 거리는 지도 투영 근사값이며 그림자 안전 범위를 뜻하지 않습니다. ‘높이 확인’은 원본 수치 보유 상태입니다.</span></footer>
+<div id="toast" class="toast" role="status" hidden></div>
+<input id="notes-file" type="file" accept="application/json,.json" hidden>
+<script id="review-data" type="application/json">__REVIEW_DATA__</script>
+<script nonce="__NONCE__">__SCRIPT__</script>
+</body>
+</html>
