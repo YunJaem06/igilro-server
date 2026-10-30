@@ -1,0 +1,17 @@
+{
+  "index": 5,
+  "type": "TURN_LEFT",
+  "coordinate": {
+    "longitude": 127.0389779,
+    "latitude": 37.5461805
+  },
+  "geometryIndex": 23,
+  "distanceFromStartMeters": 273.40005764260997,
+  "distanceToNextStepMeters": 61.551120478163,
+  "durationToNextStepSeconds": 43.96508605583074,
+  "instruction": "갈림길에서 왼쪽으로 돌아 진행하세요.",
+  "streetName": null,
+  "bearingBeforeDegrees": 89.82698100798115,
+  "bearingAfterDegrees": 19.121755597573838,
+  "crossing": null
+}

@@ -178,12 +178,70 @@ class RouteIntegrationTest {
         val replacement = graph.copy(dataVersion = "osm-v1-" + "a".repeat(64), edges = graph.edges.mapIndexed { index, edge -> if (index == 0) edge.copy(kind = EdgeKind.WALKWAY, wayId = 0) else edge })
         // Bypass the application validation to exercise the database transaction itself.
         val writer = org.springframework.jdbc.datasource.DataSourceTransactionManager(jdbc.dataSource!!)
-        val direct = com.igilro.server.route.infrastructure.JdbcGraphImportRepository(jdbc, writer)
+        val direct = com.igilro.server.route.infrastructure.JdbcGraphImportRepository(jdbc, writer,
+            com.igilro.server.route.infrastructure.JdbcGuidanceMetadataRepository(jdbc))
         // A negative node ID violates the SQL CHECK after the dataset insert has executed.
         val invalid = replacement.copy(nodes = replacement.nodes + (-10L to Coordinate(127.03,37.54)))
         assertFails { direct.save(invalid) }
         assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM route_dataset WHERE id=?", Int::class.java, replacement.dataVersion))
         assertEquals(graph.dataVersion, repository.findActiveGraphs().single().dataVersion)
+    }
+
+    @Test
+    fun `guidance metadata enriches legacy snapshots once and invalidates only the metadata cache key`() {
+        val version="osm-v1-"+"d".repeat(64)
+        val legacy=graph.copy(dataVersion=version,nodeGuidance=emptyMap(),edgeGuidance=emptyMap(),guidanceMetadataVersion=null)
+        importer.execute(legacy)
+        val before=repository.findActiveGraphs().single()
+        assertNull(before.guidanceMetadataVersion)
+        val enriched=graph.copy(dataVersion=version)
+        assertTrue(importer.execute(enriched).reused)
+        val after=repository.findActiveGraphs().single()
+        assertEquals(before.dataVersion,after.dataVersion);assertEquals(before.nodes,after.nodes);assertEquals(before.edges,after.edges)
+        assertEquals(enriched.edgeGuidance,after.edgeGuidance);assertEquals(GuidanceMetadataVersion.OSM_V1,after.guidanceMetadataVersion)
+        assertTrue(importer.execute(enriched).reused)
+        val first=enriched.edgeGuidance.entries.first()
+        assertFailsWith<IllegalArgumentException> { importer.execute(enriched.copy(edgeGuidance=enriched.edgeGuidance+
+            (first.key to first.value.copy(streetName="changed source")))) }
+        assertEquals(enriched.edgeGuidance,repository.findActiveGraphs().single().edgeGuidance)
+    }
+
+    @Test
+    fun `failed metadata enrichment rolls back all auxiliary rows and retains usable legacy routing`() {
+        val version="osm-v1-"+"e".repeat(64)
+        importer.execute(graph.copy(dataVersion=version,nodeGuidance=emptyMap(),edgeGuidance=emptyMap(),guidanceMetadataVersion=null))
+        val writer=org.springframework.jdbc.datasource.DataSourceTransactionManager(jdbc.dataSource!!)
+        val direct=com.igilro.server.route.infrastructure.JdbcGraphImportRepository(jdbc,writer,
+            com.igilro.server.route.infrastructure.JdbcGuidanceMetadataRepository(jdbc))
+        val invalid=graph.copy(dataVersion=version,nodeGuidance=mapOf(2L to NodeGuidanceMetadata(CrossingMetadata(true))),
+            edgeGuidance=graph.edgeGuidance+(999L to EdgeGuidanceMetadata(999)))
+        assertFails { direct.save(invalid) }
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM route_node_guidance WHERE dataset_id=?",Int::class.java,version))
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM route_guidance_dataset WHERE dataset_id=?",Int::class.java,version))
+        assertEquals(version,repository.findActiveGraphs().single().dataVersion)
+        mvc.perform(request(query())).andExpect(status().isOk)
+            .andExpect(jsonPath("$.routes[0].guidance.metadataStatus").value("TOPOLOGY_ONLY"))
+    }
+
+    @Test
+    fun `source names and explicit crossing signals survive DB roundtrip and appear as additive API guidance`() {
+        val file=directory.resolve("named-crossing.osm")
+        val original=Files.readString(directory.resolve("fixture.osm"))
+        Files.writeString(file,original.replace("<node id=\"2\" lon=\"127.031\" lat=\"37.540\"/>",
+            """<node id="2" lon="127.031" lat="37.540"><tag k="highway" v="crossing"/><tag k="crossing:signals" v="yes"/></node>""")
+            .replaceFirst("<tag k=\"highway\" v=\"footway\"/>","""<tag k="highway" v="footway"/><tag k="name:ko" v="서울숲길"/>"""))
+        val named=OsmGraphReader().read(file,"test","Test",graph.bounds,"synthetic-fixture")
+        importer.execute(named)
+        assertEquals(named.nodeGuidance,repository.findActiveGraphs().single().nodeGuidance)
+        assertEquals(named.edgeGuidance,repository.findActiveGraphs().single().edgeGuidance)
+        mvc.perform(request(query())).andExpect(status().isOk)
+            .andExpect(jsonPath("$.routes[0].guidance.status").value("AVAILABLE"))
+            .andExpect(jsonPath("$.routes[0].guidance.steps[0].type").value("DEPART"))
+            .andExpect(jsonPath("$.routes[0].guidance.steps[1].type").value("CROSSING"))
+            .andExpect(jsonPath("$.routes[0].guidance.steps[1].crossing.trafficSignals").value(true))
+            .andExpect(jsonPath("$.routes[0].guidance.steps[1].streetName").value("서울숲길"))
+            .andExpect(jsonPath("$.routes[0].geometry.type").value("LineString"))
+            .andExpect(jsonPath("$.routes[0].metrics.shadeRatio").value(org.hamcrest.Matchers.nullValue()))
     }
 
     @Test

@@ -17,6 +17,9 @@ data class GraphImport(
     val checksum: String,
     val nodes: Map<Long, Coordinate>,
     val edges: List<ImportedEdge>,
+    val nodeGuidance: Map<Long, NodeGuidanceMetadata> = emptyMap(),
+    val edgeGuidance: Map<Long, EdgeGuidanceMetadata> = emptyMap(),
+    val guidanceMetadataVersion: String? = null,
 )
 
 data class GraphImportSummary(val dataVersion: String, val nodeCount: Int, val edgeCount: Int, val reused: Boolean)

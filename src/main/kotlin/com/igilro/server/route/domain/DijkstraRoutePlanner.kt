@@ -41,23 +41,25 @@ class DijkstraRoutePlanner(private val snapper: EdgeSnapper = EdgeSnapper()) {
     private fun findConnected(graph: WalkingGraph, start: SnappedLocation, end: SnappedLocation): WalkingRoute {
         if (start.coordinate.distanceTo(end.coordinate) < 0.01) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
         val additions = mutableMapOf<Long, MutableList<GraphArc>>()
-        fun add(from: Long, to: Long, edge: WalkingEdge, fraction: Double) {
-            val metres = edge.distanceMeters * fraction.coerceIn(0.0, 1.0)
-            additions.getOrPut(from) { mutableListOf() }.add(GraphArc(to, metres, WalkingTimeModel.duration(metres, edge.kind)))
+        fun add(from: Long, to: Long, edge: WalkingEdge, a: Double, b: Double) {
+            val fraction = kotlin.math.abs(b-a).coerceIn(0.0, 1.0)
+            val metres = edge.distanceMeters * fraction
+            additions.getOrPut(from) { mutableListOf() }.add(GraphArc(to, metres, WalkingTimeModel.duration(metres, edge.kind),
+                if (fraction == 0.0) null else RouteTraversal(edge.id,a,b)))
         }
         // Endpoint snaps connect to all incident ways, including at one-way foot edges.
-        if (start.fraction < 1e-9) add(START, start.edge.from, start.edge, 0.0)
-        if (start.fraction > 1 - 1e-9) add(START, start.edge.to, start.edge, 0.0)
-        if (end.fraction < 1e-9) add(end.edge.from, END, end.edge, 0.0)
-        if (end.fraction > 1 - 1e-9) add(end.edge.to, END, end.edge, 0.0)
-        if (start.edge.forwardAllowed) add(START, start.edge.to, start.edge, 1 - start.fraction)
-        if (start.edge.backwardAllowed) add(START, start.edge.from, start.edge, start.fraction)
-        if (end.edge.forwardAllowed) add(end.edge.from, END, end.edge, end.fraction)
-        if (end.edge.backwardAllowed) add(end.edge.to, END, end.edge, 1 - end.fraction)
+        if (start.fraction < 1e-9) add(START, start.edge.from, start.edge, 0.0,0.0)
+        if (start.fraction > 1 - 1e-9) add(START, start.edge.to, start.edge, 1.0,1.0)
+        if (end.fraction < 1e-9) add(end.edge.from, END, end.edge, 0.0,0.0)
+        if (end.fraction > 1 - 1e-9) add(end.edge.to, END, end.edge, 1.0,1.0)
+        if (start.edge.forwardAllowed) add(START, start.edge.to, start.edge, start.fraction,1.0)
+        if (start.edge.backwardAllowed) add(START, start.edge.from, start.edge, start.fraction,0.0)
+        if (end.edge.forwardAllowed) add(end.edge.from, END, end.edge, 0.0,end.fraction)
+        if (end.edge.backwardAllowed) add(end.edge.to, END, end.edge, 1.0,end.fraction)
         if (start.edge.id == end.edge.id) {
             val delta = end.fraction - start.fraction
-            if (delta >= 0 && start.edge.forwardAllowed) add(START, END, start.edge, delta)
-            if (delta <= 0 && start.edge.backwardAllowed) add(START, END, start.edge, -delta)
+            if (delta >= 0 && start.edge.forwardAllowed) add(START, END, start.edge, start.fraction,end.fraction)
+            if (delta <= 0 && start.edge.backwardAllowed) add(START, END, start.edge, start.fraction,end.fraction)
         }
 
         val queue = PriorityQueue(compareBy<QueueItem> { it.seconds }.thenBy { it.node })
@@ -81,9 +83,11 @@ class DijkstraRoutePlanner(private val snapper: EdgeSnapper = EdgeSnapper()) {
         val reversed = mutableListOf(END)
         var node = END
         var metres = 0.0
+        val traversals = mutableListOf<RouteTraversal>()
         while (node != START) {
             val step = previous.getValue(node)
             metres += step.arc.distanceMeters
+            step.arc.traversal?.let(traversals::add)
             node = step.node
             reversed.add(node)
         }
@@ -97,7 +101,7 @@ class DijkstraRoutePlanner(private val snapper: EdgeSnapper = EdgeSnapper()) {
             if (coordinates.lastOrNull() != point) coordinates.add(point)
         }
         if (coordinates.size < 2 || metres <= 0) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
-        return WalkingRoute(coordinates, metres, seconds.getValue(END), start, end)
+        return WalkingRoute(coordinates, metres, seconds.getValue(END), start, end, traversals.asReversed())
     }
 
     companion object {

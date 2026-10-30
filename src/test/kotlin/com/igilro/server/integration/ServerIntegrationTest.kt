@@ -37,9 +37,9 @@ class ServerIntegrationTest {
 
     @Test
     fun `Flyway enables PostGIS and is safe to run again`() {
-        assertEquals("5", flyway.info().current().version.version)
+        assertEquals("6", flyway.info().current().version.version)
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM pg_extension WHERE extname = 'postgis'", Int::class.java))
-        assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Int::class.java))
+        assertEquals(6, jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Int::class.java))
         flyway.validate()
         assertEquals(0, flyway.migrate().migrationsExecuted)
     }

@@ -10,6 +10,7 @@ import org.springframework.transaction.support.TransactionTemplate
 class JdbcGraphImportRepository(
     private val jdbc: JdbcTemplate,
     transactionManager: PlatformTransactionManager,
+    private val guidanceMetadata: JdbcGuidanceMetadataRepository,
 ) : GraphImportRepository {
     private val transaction = TransactionTemplate(transactionManager)
 
@@ -55,6 +56,7 @@ class JdbcGraphImportRepository(
                 statement.setString(10, wkt)
             }
         }
+        guidanceMetadata.save(graph)
         jdbc.update(
             """INSERT INTO route_service_area(id,name,west,south,east,north,boundary,active_dataset_id)
                 VALUES (?,?,?,?,?,?,ST_GeomFromText(?,4326),?)

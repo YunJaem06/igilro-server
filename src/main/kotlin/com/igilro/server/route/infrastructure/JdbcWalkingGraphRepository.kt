@@ -7,20 +7,21 @@ import org.springframework.stereotype.Repository
 import java.util.concurrent.ConcurrentHashMap
 
 @Repository
-class JdbcWalkingGraphRepository(private val jdbc: JdbcTemplate) : WalkingGraphRepository {
-    private data class ActiveDataset(val version: String, val area: String, val bounds: Bounds, val nodes: Int, val edges: Int)
+class JdbcWalkingGraphRepository(private val jdbc: JdbcTemplate,private val guidanceMetadata: JdbcGuidanceMetadataRepository) : WalkingGraphRepository {
+    private data class ActiveDataset(val version: String, val area: String, val bounds: Bounds, val nodes: Int, val edges: Int,val guidanceVersion: String?)
     private val cache = ConcurrentHashMap<ActiveDataset, WalkingGraph>()
 
     override fun findActiveGraphs(): List<WalkingGraph> = try {
         // Metadata is checked for every request; an imported dataset's contents are immutable.
         val active = jdbc.query(
             """SELECT a.id, a.west, a.south, a.east, a.north, d.id AS version, d.area_id AS dataset_area, d.node_count, d.edge_count
-                FROM route_service_area a JOIN route_dataset d ON d.id=a.active_dataset_id ORDER BY a.id""".trimIndent(),
+                ,g.metadata_version FROM route_service_area a JOIN route_dataset d ON d.id=a.active_dataset_id
+                LEFT JOIN route_guidance_dataset g ON g.dataset_id=d.id ORDER BY a.id""".trimIndent(),
         ) { row, _ ->
             require(row.getString("id") == row.getString("dataset_area")) { "Active dataset belongs to another area" }
             ActiveDataset(row.getString("version"), row.getString("id"),
                 Bounds(row.getDouble("west"), row.getDouble("south"), row.getDouble("east"), row.getDouble("north")),
-                row.getInt("node_count"), row.getInt("edge_count"))
+                row.getInt("node_count"), row.getInt("edge_count"),row.getString("metadata_version"))
         }
         cache.keys.retainAll(active.toSet())
         active.map { dataset -> cache.computeIfAbsent(dataset) { load(dataset) } }
@@ -41,6 +42,10 @@ class JdbcWalkingGraphRepository(private val jdbc: JdbcTemplate) : WalkingGraphR
                 EdgeKind.valueOf(row.getString("kind")), row.getBoolean("forward_allowed"), row.getBoolean("backward_allowed"))
         }, dataset.version)
         if (nodes.size != dataset.nodes || edges.size != dataset.edges) throw RouteFailure(RouteFailureReason.DATA_UNAVAILABLE)
-        return WalkingGraph(dataset.version, dataset.area, dataset.bounds, nodes, edges)
+        val metadata=if(dataset.guidanceVersion==null) JdbcGuidanceMetadataRepository.Snapshot(null,emptyMap(),emptyMap())
+            else guidanceMetadata.load(dataset.version)
+        require(metadata.version==dataset.guidanceVersion)
+        if(metadata.version!=null) require(metadata.edges.size==edges.size)
+        return WalkingGraph(dataset.version, dataset.area, dataset.bounds, nodes, edges,metadata.nodes,metadata.edges,metadata.version)
     }
 }

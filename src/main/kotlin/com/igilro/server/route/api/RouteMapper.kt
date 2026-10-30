@@ -28,6 +28,7 @@ object RouteMapper {
                 metrics = RouteMetricsResponse(shadeRatio = result.shade.ratio),
                 shadeEvaluation = ShadeEvaluationResponse(result.shade.status.name, result.shade.coverage,
                     result.shade.dataVersion, ShadeEvaluation.MODEL_VERSION, result.shade.attribution, result.shade.solarAltitudeDegrees),
+                guidance = RouteGuidanceMapper.toResponse(result.guidance),
             )),
             evaluatedAt = result.evaluatedAt,
             dataVersion = result.dataVersion,

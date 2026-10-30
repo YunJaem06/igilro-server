@@ -70,6 +70,7 @@ class OsmGraphReader(private val policy: OsmWalkingPolicy = OsmWalkingPolicy()) 
         }
         require(ways.map { it.id }.toSet().size == ways.size) { "Duplicate OSM way" }
         val edges = mutableListOf<ImportedEdge>()
+        val edgeGuidance = mutableMapOf<Long,EdgeGuidanceMetadata>()
         val used = linkedMapOf<Long, Coordinate>()
         ways.sortedBy { it.id }.forEach { way ->
             val permissions = policy.way(way.tags) ?: return@forEach
@@ -82,12 +83,14 @@ class OsmGraphReader(private val policy: OsmWalkingPolicy = OsmWalkingPolicy()) 
                     used[fromId] = from.coordinate
                     used[toId] = to.coordinate
                     edges.add(ImportedEdge(edges.size.toLong() + 1, way.id, fromId, toId, permissions.kind, permissions.forward, permissions.backward))
+                    edgeGuidance[edges.last().id] = OsmGuidanceTags.edge(way.id,way.tags)
                 }
             }
         }
         val checksum = sha256(bytes)
         val version = "osm-v1-" + sha256("$checksum|$areaId|$bounds|${OsmWalkingPolicy.VERSION}".toByteArray())
-        return GraphImport(version, areaId, areaName, bounds, source, requireNotNull(sourceTimestamp) { "OSM snapshot timestamp is required" }, checksum, used, edges)
+        return GraphImport(version, areaId, areaName, bounds, source, requireNotNull(sourceTimestamp) { "OSM snapshot timestamp is required" }, checksum, used, edges,
+            used.keys.mapNotNull { id -> OsmGuidanceTags.node(nodes.getValue(id).tags)?.let { id to it } }.toMap(),edgeGuidance,GuidanceMetadataVersion.OSM_V1)
     }
 
     private fun sha256(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

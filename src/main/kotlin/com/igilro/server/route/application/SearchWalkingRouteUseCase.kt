@@ -21,6 +21,7 @@ class SearchWalkingRouteUseCase(
         if (query.origin.distanceTo(query.destination) > 5_000) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
         val route = planner.find(graph, query.origin, query.destination, 50.0)
         val shade = shadeEvaluator.evaluate(graph.areaId, route.coordinates, evaluatedAt)
-        return RouteSearchResult(route, graph.dataVersion, evaluatedAt, shade)
+        return RouteSearchResult(route, graph.dataVersion, evaluatedAt, shade,
+            guidance = RouteGuidanceGenerator().generate(graph, route))
     }
 }

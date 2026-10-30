@@ -38,6 +38,8 @@ data class RouteResponse(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val additionalDurationSeconds: Long,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val metrics: RouteMetricsResponse = RouteMetricsResponse(),
     @field:Schema(description = "출발 시각의 건물 그림자 평가 상태·커버리지·버전") val shadeEvaluation: ShadeEvaluationResponse? = null,
+    @field:Schema(description = "선택된 보행 경로의 출발·분기·횡단·도착 안내. 기존 경로를 변경하지 않는 부가 정보")
+    val guidance: RouteGuidanceResponse? = null,
 )
 
 data class CoordinateResponse(val longitude: Double, val latitude: Double)

@@ -17,6 +17,13 @@ class ImportWalkingGraphUseCase(private val repository: GraphImportRepository) {
             edge.id > 0 && edge.wayId > 0 && edge.from in graph.nodes && edge.to in graph.nodes &&
                 graph.nodes[edge.from] != graph.nodes[edge.to] && (edge.forwardAllowed || edge.backwardAllowed)
         })
+        require(graph.nodeGuidance.keys.all { it in graph.nodes })
+        if(graph.guidanceMetadataVersion==null) require(graph.nodeGuidance.isEmpty() && graph.edgeGuidance.isEmpty())
+        else {
+            require(graph.guidanceMetadataVersion==com.igilro.server.route.domain.GuidanceMetadataVersion.OSM_V1)
+            val ways=graph.edges.associate { it.id to it.wayId }
+            require(graph.edgeGuidance.keys==ways.keys && graph.edgeGuidance.all { (id,metadata) -> metadata.osmWayId==ways[id] })
+        }
         return repository.save(graph)
     }
 }
