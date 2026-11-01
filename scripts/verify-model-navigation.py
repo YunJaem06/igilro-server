@@ -8,6 +8,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import math
+import re
 from pathlib import Path
 import time
 from urllib.error import HTTPError
@@ -110,18 +111,31 @@ def verify_guidance(route):
         raise ValueError('Guidance time differs from the existing walking time')
 
 
+def call(base_url, path, payload=None):
+    """Bounded retries for the server's explicit admission rejections only."""
+    start = time.monotonic()
+    for attempt in range(3):
+        request = Request(base_url.rstrip('/')+path, data=None if payload is None else json.dumps(payload).encode(),
+                          headers={'Accept':'application/json','Content-Type':'application/json'})
+        try:
+            response = urlopen(request, timeout=30)
+        except HTTPError as error:
+            response = error
+        with response:
+            status, document = response.status, json.load(response)
+            retry_after = response.headers.get('Retry-After', '')
+        retryable = (status, document.get('code')) in {
+            (429, 'TOO_MANY_REQUESTS'), (503, 'ROUTE_SEARCH_BUSY')}
+        # Do not guess a delay, retry data/algorithm failures, or wait without a bound.
+        if (not retryable or attempt == 2 or not re.fullmatch(r'[0-9]{1,2}', retry_after)
+                or not 1 <= int(retry_after) <= 10):
+            return status, document, time.monotonic()-start
+        time.sleep(int(retry_after))
+
+
 def run(args):
     args.output.mkdir(parents=True, exist_ok=True)
-    def call(path, payload=None):
-        request = Request(args.base_url.rstrip('/')+path, data=None if payload is None else json.dumps(payload).encode(),
-                          headers={'Accept':'application/json','Content-Type':'application/json'})
-        start = time.monotonic()
-        try:
-            with urlopen(request, timeout=30) as result:
-                return result.status, json.load(result), time.monotonic()-start
-        except HTTPError as error:
-            return error.code, json.load(error), time.monotonic()-start
-    status, coverage, _ = call('/api/v1/routes/predictions/coverage')
+    status, coverage, _ = call(args.base_url, '/api/v1/routes/predictions/coverage')
     if status != 200:
         raise ValueError('Coverage unavailable')
     (args.output/'coverage.json').write_text(json.dumps(coverage, ensure_ascii=False), encoding='utf-8')
@@ -136,7 +150,7 @@ def run(args):
         pair = []
         for mode in ('fastest','shade'):
             request = dict(case['request'], mode=mode)
-            status, response, elapsed = call('/api/v1/routes/predictions/search', request)
+            status, response, elapsed = call(args.base_url, '/api/v1/routes/predictions/search', request)
             stem = f'{index:02}-{mode}'
             for suffix, document in [('request',request),('response',response)]:
                 (args.output/f'{stem}-{suffix}.json').write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding='utf-8')
