@@ -57,6 +57,10 @@ logging:
     level: "%5p [requestId:%X{requestId:-}]"
 
 igilro:
+  route-search:
+    requests-per-second: ${ROUTE_SEARCH_REQUESTS_PER_SECOND:4}
+    burst-capacity: ${ROUTE_SEARCH_BURST_CAPACITY:4}
+    max-concurrent-searches: ${ROUTE_SEARCH_MAX_CONCURRENT:2}
   shade-prediction:
     file: ${SHADE_PREDICTION_FILE:}
   shade-routing:

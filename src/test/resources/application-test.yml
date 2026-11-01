@@ -5,5 +5,10 @@ springdoc:
     enabled: true
 
 igilro:
+  # Isolate existing route-contract fixtures from admission limits. Dedicated tests use small limits.
+  route-search:
+    requests-per-second: 1000
+    burst-capacity: 1000
+    max-concurrent-searches: 64
   places:
     api-key: ""

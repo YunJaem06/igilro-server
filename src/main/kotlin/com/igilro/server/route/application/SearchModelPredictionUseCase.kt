@@ -14,10 +14,18 @@ interface ModelPredictionSource {
 data class ModelPredictionResult(val result: RouteSearchResult,val info: PredictionSceneInfo,val baselineModeledShadeRatio: Double,
     val sections: List<ModeledShadeSection>)
 
-class SearchModelPredictionUseCase(private val source: ModelPredictionSource,private val clock: Clock) {
+class SearchModelPredictionUseCase(
+    private val source: ModelPredictionSource,
+    private val clock: Clock,
+    private val admission: RouteSearchAdmission,
+) {
     fun execute(query: RouteQuery): ModelPredictionResult {
         if(query.travelMode!="walking" || query.mode !in setOf("fastest","shade") || query.origin==query.destination)
             throw RouteFailure(RouteFailureReason.INVALID_QUERY)
+        return admission.execute { search(query) }
+    }
+
+    private fun search(query: RouteQuery): ModelPredictionResult {
         val info=source.current() ?: throw RouteFailure(RouteFailureReason.PREDICTION_DATA_UNAVAILABLE)
         val graph=info.graph
         if(!graph.bounds.contains(query.origin) || !graph.bounds.contains(query.destination)) throw RouteFailure(RouteFailureReason.OUTSIDE_SUPPORTED_AREA)

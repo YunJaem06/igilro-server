@@ -33,7 +33,7 @@ class ModelPredictionControllerTest {
                 ModeledShadeSection(ModeledShadeState.SUNLIGHT,listOf(middle,b),10.5,21.0)))
         }
     }
-    private fun mvc(enabled: Boolean=true)=MockMvcBuilders.standaloneSetup(ModelPredictionController(SearchModelPredictionUseCase(source(enabled),clock)))
+    private fun mvc(enabled: Boolean=true)=MockMvcBuilders.standaloneSetup(ModelPredictionController(SearchModelPredictionUseCase(source(enabled),clock,RouteSearchAdmission())))
         .setControllerAdvice(RouteExceptionHandler(clock),GlobalExceptionHandler(clock)).addFilters<StandaloneMockMvcBuilder>(RequestIdFilter()).build()
     private fun request(extra: String="")=post("/api/v1/routes/predictions/search").contentType(MediaType.APPLICATION_JSON)
         .content("""{"origin":{"longitude":127.0374,"latitude":37.5483},"destination":{"longitude":127.0376,"latitude":37.5484}$extra}""")

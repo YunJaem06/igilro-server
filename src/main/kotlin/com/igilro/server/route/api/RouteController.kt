@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.headers.Header
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.MediaType
@@ -21,7 +22,8 @@ class RouteController(private val search: SearchWalkingRouteUseCase) {
     @ApiResponse(responseCode = "400", description = "INVALID_REQUEST 또는 INVALID_ROUTE_QUERY", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "404", description = "ROUTE_NOT_FOUND", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "422", description = "OUTSIDE_SUPPORTED_AREA 또는 SHADE_TIME_UNSUPPORTED", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
-    @ApiResponse(responseCode = "503", description = "ROUTING_DATA_UNAVAILABLE / SHADE_DATA_UNAVAILABLE / ROUTE_SEARCH_LIMIT_EXCEEDED", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "429", description = "TOO_MANY_REQUESTS: 일반·모델 검색의 공유 요청 한도 초과", headers = [Header(name = "Retry-After", description = "재시도 전 대기할 최소 초", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "503", description = "ROUTING_DATA_UNAVAILABLE / SHADE_DATA_UNAVAILABLE / ROUTE_SEARCH_LIMIT_EXCEEDED / ROUTE_SEARCH_BUSY. BUSY에는 Retry-After 제공", headers = [Header(name = "Retry-After", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "500", description = "INTERNAL_SERVER_ERROR", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     fun search(@Valid @RequestBody request: RouteSearchRequest) = RouteMapper.toResponse(search.execute(RouteMapper.toQuery(request)))
 }

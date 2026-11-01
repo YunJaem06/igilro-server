@@ -2,7 +2,12 @@ package com.igilro.server.route.api
 
 import com.igilro.server.route.application.SearchModelPredictionUseCase
 import com.igilro.server.route.domain.prediction.ModelScene
+import com.igilro.server.shared.api.error.ApiErrorResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.headers.Header
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.MediaType
@@ -40,6 +45,13 @@ class ModelPredictionController(private val search: SearchModelPredictionUseCase
     @PostMapping("/search",consumes=[MediaType.APPLICATION_JSON_VALUE],produces=[MediaType.APPLICATION_JSON_VALUE])
     @Operation(summary="3D 모델 기반 도보 경로 예측",operationId="searchModelRoutePrediction",
         description="coverage가 반환하는 보행망에서 모델 높이·DEM·고정 태양을 사용합니다. shadeSegments는 경로 순서대로 이어지는 SHADE/SUNLIGHT LineString입니다. modeledShadeRatio는 실제 관측 커버리지가 아닌 모델 예측입니다. shade는 같은 스냅에서 최단 시간 대비 30% 이내로 모델 햇빛 노출 시간을 최소화합니다.")
+    @ApiResponse(responseCode = "200", description = "모델 기반 경로 예측")
+    @ApiResponse(responseCode = "400", description = "INVALID_REQUEST / INVALID_ROUTE_QUERY", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "404", description = "ROUTE_NOT_FOUND", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "422", description = "OUTSIDE_SUPPORTED_AREA / SHADE_TIME_UNSUPPORTED", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "429", description = "TOO_MANY_REQUESTS: 일반·모델 검색의 공유 요청 한도 초과", headers = [Header(name = "Retry-After", description = "재시도 전 대기할 최소 초", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "503", description = "PREDICTION_DATA_UNAVAILABLE / ROUTE_SEARCH_LIMIT_EXCEEDED / ROUTE_SEARCH_BUSY. BUSY에는 Retry-After 제공", headers = [Header(name = "Retry-After", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "500", description = "INTERNAL_SERVER_ERROR", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     fun search(@Valid @RequestBody request: RouteSearchRequest): ModelRoutePredictionResponse {
         val prediction=search.execute(RouteMapper.toQuery(request));val response=RouteMapper.toResponse(prediction.result)
         return ModelRoutePredictionResponse(response.routes.map { r -> PredictedRouteResponse(r.id,r.mode,r.geometry,r.distanceMeters,

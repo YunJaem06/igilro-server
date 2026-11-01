@@ -2,10 +2,13 @@ package com.igilro.server.route.api
 
 import com.igilro.server.route.domain.RouteFailure
 import com.igilro.server.route.domain.RouteFailureReason
+import com.igilro.server.route.application.RouteSearchRejected
+import com.igilro.server.route.application.RouteSearchRejectionReason
 import com.igilro.server.shared.api.error.ApiErrorResponder
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpHeaders
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
@@ -15,6 +18,19 @@ import java.time.Clock
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class RouteExceptionHandler(clock: Clock) {
     private val responder = ApiErrorResponder(clock)
+
+    @ExceptionHandler(RouteSearchRejected::class)
+    fun handleRejection(failure: RouteSearchRejected, request: WebRequest): org.springframework.http.ResponseEntity<Any> {
+        val (status, code, message) = when (failure.reason) {
+            RouteSearchRejectionReason.RATE_LIMITED -> Triple(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS", "경로 검색 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+            RouteSearchRejectionReason.BUSY -> Triple(HttpStatus.SERVICE_UNAVAILABLE, "ROUTE_SEARCH_BUSY", "처리 중인 경로 검색이 많습니다. 잠시 후 다시 시도해 주세요.")
+        }
+        val headers = HttpHeaders().apply {
+            cacheControl = "no-store"
+            set(HttpHeaders.RETRY_AFTER, failure.retryAfterSeconds.toString())
+        }
+        return responder.respond(status, code, message, request, headers)
+    }
 
     @ExceptionHandler(RouteFailure::class)
     fun handle(failure: RouteFailure, request: WebRequest) = when (failure.reason) {

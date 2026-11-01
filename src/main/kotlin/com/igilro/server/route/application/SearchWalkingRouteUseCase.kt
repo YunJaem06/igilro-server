@@ -9,6 +9,7 @@ class SearchWalkingRouteUseCase(
     private val planner: DijkstraRoutePlanner,
     private val clock: Clock,
     private val shadeEvaluator: RouteShadeEvaluator,
+    private val admission: RouteSearchAdmission,
     private val batchEvaluator: RouteShadeBatchEvaluator = RouteShadeBatchEvaluator { _, paths, _, _ ->
         paths.map { ShadePathMeasurement(ShadeEvaluation(ShadeStatus.DATA_UNAVAILABLE)) }
     },
@@ -18,6 +19,10 @@ class SearchWalkingRouteUseCase(
         if (query.travelMode != "walking" || query.mode !in setOf("fastest", "shade") ||
             query.origin == query.destination
         ) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
+        return admission.execute { search(query) }
+    }
+
+    private fun search(query: RouteQuery): RouteSearchResult {
         val evaluatedAt = query.departureAt ?: clock.instant()
         val graphs = repository.findActiveGraphs()
         if (graphs.isEmpty()) throw RouteFailure(RouteFailureReason.DATA_UNAVAILABLE)

@@ -14,7 +14,7 @@ class SearchWalkingRouteUseCaseTest {
     private val b = Coordinate(127.032, 37.54)
     private val graph = WalkingGraph("dataset", "test", Bounds(127.02, 37.53, 127.05, 37.56), mapOf(1L to a, 2L to b), listOf(WalkingEdge(1, 1, 2, 180.0)))
     private fun useCase(graphs: List<WalkingGraph>, evaluator: RouteShadeEvaluator = RouteShadeEvaluator { _, _, _ -> ShadeEvaluation(ShadeStatus.DATA_UNAVAILABLE) }) =
-        SearchWalkingRouteUseCase(WalkingGraphRepository { graphs }, DijkstraRoutePlanner(), Clock.fixed(now, ZoneOffset.UTC), evaluator)
+        SearchWalkingRouteUseCase(WalkingGraphRepository { graphs }, DijkstraRoutePlanner(), Clock.fixed(now, ZoneOffset.UTC), evaluator, RouteSearchAdmission())
 
     @Test
     fun `shade evaluates the computed network geometry at the applied departure instant`() {
@@ -101,7 +101,7 @@ class SearchWalkingRouteUseCaseTest {
         var called=false
         val search=SearchWalkingRouteUseCase(WalkingGraphRepository { listOf(graph) },DijkstraRoutePlanner(),Clock.fixed(now,ZoneOffset.UTC),
             RouteShadeEvaluator { _,_,_ -> ShadeEvaluation(ShadeStatus.AVAILABLE,0.5,1.0,"previous-snapshot") },
-            RouteShadeBatchEvaluator { area,paths,reference,time ->
+            RouteSearchAdmission(), RouteShadeBatchEvaluator { area,paths,reference,time ->
                 called=true
                 assertEquals("test",area)
                 assertEquals(departure,time)
@@ -121,7 +121,7 @@ class SearchWalkingRouteUseCaseTest {
         var compared=false
         val search=SearchWalkingRouteUseCase(WalkingGraphRepository { listOf(graph) },DijkstraRoutePlanner(),Clock.fixed(now,ZoneOffset.UTC),
             RouteShadeEvaluator { _,_,_ -> ShadeEvaluation(ShadeStatus.AVAILABLE,0.5,1.0,"buildings") },
-            RouteShadeBatchEvaluator { _,_,_,_ -> compared=true; emptyList() },setOf("a-different-graph-version"))
+            RouteSearchAdmission(), RouteShadeBatchEvaluator { _,_,_,_ -> compared=true; emptyList() },setOf("a-different-graph-version"))
         assertEquals(RouteFailureReason.SHADE_DATA_UNAVAILABLE,assertFailsWith<RouteFailure> {
             search.execute(RouteQuery(a,b,mode="shade"))
         }.reason)
