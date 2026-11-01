@@ -128,7 +128,7 @@ python scripts/prepare-model-prediction.py \
 
 기존 출력 파일을 덮어쓰지 않는다. `--offline`으로 저장된 캐시만 사용한다. 출입 지점 예시는 OpenStreetMap contributors의 OSM 2026-10-25 원본을 기준으로 추출했다. 실제 운영 중 출입구 변경·공사·폐쇄를 보장하지 않는다. 공원 공간 구성은 [서울숲 공식 안내](https://seoulforest.or.kr/info/park-info)도 참고한다.
 
-로컬 `.env`에는 현재 다음 설정이 적용되어 있다.
+아래는 기존 검증 환경에서 사용한 경로 예시다. `.env`와 `data/`는 Git으로 전달되지 않으므로 새 환경에서는 먼저 실제 장면 파일을 복사하거나 위 절차로 준비하고 그 위치를 설정한다.
 
 ```dotenv
 SHADE_PREDICTION_FILE=data/public-buildings/seoul-forest-navigation-20261028/scene/scene.json
@@ -143,6 +143,8 @@ scene.json과 같은 폴더의 roads.osm이 필요하고 도로 SHA-256을 대�
 나무·구름·지형 지평선·정밀 지붕·이동 중 태양 변화는 미반영이다. 특히 **공원 안에서 모델 예측 0%가 나와도 나무 그늘이 없다는 뜻은 아니다.** 그래프 주위 약 150m 장면 버퍼 밖의 높은 건물도 빠질 수 있다. 원본 취득일·수직 기준계는 미확인이고 DEM 일관성을 가정한다. 별도 직접 높이 DB/검증 허용 목록은 변경하지 않는다.
 
 shade는 기준 시간 30% 이내에서 모델상 햇빛 노출 초를 최소화한다. 비율은 길이 기준이다. 한 측정 배치 250,000개 샘플·약 8초, 최종 구간 추적 배치도 같은 한도를 적용한다. 기존 후보 12,000개·label 100,000개·탐색 약 2초 제한을 유지하며 초과하면 503이다. 단일 로컬 측정은 동시 부하 성능 보장이 아니다.
+
+추가로 일반·모델 POST 검색은 [공유 요청 제한·동시 실행 한도](route-search-limits.md)를 사용한다. 429 TOO_MANY_REQUESTS 또는 503 ROUTE_SEARCH_BUSY에는 Retry-After를 제공한다. 아래 대량 검증 도구는 이 두 오류에만 유효한 1~10초 Retry-After를 따라 최대 2번 재시도한다. 다른 업무 오류는 재시도하지 않으며 측정 elapsedSeconds에는 재시도 대기도 포함된다.
 
 ## 검증 재현
 

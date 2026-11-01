@@ -78,7 +78,7 @@
 
 요청에는 origin/destination 좌표, travelMode, mode, departureAt만 전달합니다. 장소명·주소·공급자 ID 등 정의되지 않은 요청 필드는 400 `INVALID_REQUEST`입니다. 정확한 응답과 오류 표는 [API 계약](api-contract.md), 실행·데이터 준비 방법은 [Phase 2 문서](phase-2-routing.md)를 따릅니다.
 
-업무 오류의 400 `INVALID_ROUTE_QUERY`, 422 `OUTSIDE_SUPPORTED_AREA`, 404 `ROUTE_NOT_FOUND`, 503 `ROUTING_DATA_UNAVAILABLE` 제안은 수용합니다. 문법·타입 오류는 공통 `INVALID_REQUEST`, 미구현 URL은 `NOT_FOUND`로 구분합니다. graph가 준비되지 않은 상태를 경로 없음으로 숨기지 않습니다. 인증과 경로 요청 제한은 후속 범위이며 장소 검색에는 프로세스별 제한을 적용했습니다.
+업무 오류의 400 `INVALID_ROUTE_QUERY`, 422 `OUTSIDE_SUPPORTED_AREA`, 404 `ROUTE_NOT_FOUND`, 503 `ROUTING_DATA_UNAVAILABLE` 제안은 수용합니다. 문법·타입 오류는 공통 `INVALID_REQUEST`, 미구현 URL은 `NOT_FOUND`로 구분합니다. graph가 준비되지 않은 상태를 경로 없음으로 숨기지 않습니다. 일반·모델 경로 검색에는 공유 요청 제한(429 TOO_MANY_REQUESTS)과 동시 계산 제한(503 ROUTE_SEARCH_BUSY)을 적용하며 Retry-After를 제공합니다. [기본값과 앱 재시도 계약](route-search-limits.md)을 참고합니다. 인증은 후속 범위이며 장소 검색의 기존 제한은 독립적으로 유지합니다.
 
 ## 첫 지역·데이터 현황과 환경 계산 계획
 

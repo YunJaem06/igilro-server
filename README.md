@@ -126,9 +126,15 @@ curl -i http://localhost:8080/api/v1/routes/search \
 
 검증 스냅샷의 위 요청은 약 800.8m·예상 573초의 실제 그래프 경로를 반환했습니다. 입력 위치와 경로 끝점 사이의 차이는 `snapping`으로 제공합니다. 건물 자료와 출발 시각으로 전체 경로를 평가할 수 있을 때 shadeRatio를 계산하며 미평가 지표는 null입니다. 범위·시간 모델·후보 snapping·데이터 한계는 [Phase 2 실행/설계](docs/phase-2-routing.md), 측정 결과는 [검증 기록](docs/phase-2-verification.md), 건물 적재와 평가 상태는 [Phase 3 그늘 평가](docs/phase-3-shade.md)를 참고합니다.
 
+## 경로 검색 요청 제한
+
+일반·모델 경로 POST 검색은 하나의 프로세스별 한도를 공유합니다. 기본 초당 4건, 순간 요청 4건, 동시 계산 2건입니다. 요청 빈도 초과는 `429 TOO_MANY_REQUESTS`, 실행 슬롯 부족은 `503 ROUTE_SEARCH_BUSY`이며 모두 `Retry-After: 1`과 기존 공통 오류 JSON을 반환합니다. health·coverage·장소 검색은 이 경로 한도에 포함되지 않습니다.
+
+`ROUTE_SEARCH_REQUESTS_PER_SECOND`, `ROUTE_SEARCH_BURST_CAPACITY`, `ROUTE_SEARCH_MAX_CONCURRENT`로 조정하고 서버를 재시작합니다. [적용 범위·설계·재시도와 검증 방법](docs/route-search-limits.md)을 참고합니다.
+
 ## DB와 Flyway 확인
 
-이미지에는 PostGIS 패키지만 설치합니다. local/dev는 서버 시작 시 Flyway V1이 확장을 만듭니다. prod RDS는 관리자가 PostGIS를 사전 설치하고 migrator 계정의 일회성 Flyway가 V1~V3를 적용합니다. DB 컨테이너만 처음 실행한 시점에는 확장이 활성화되지 않은 것이 정상입니다.
+이미지에는 PostGIS 패키지만 설치합니다. local/dev는 서버 시작 시 Flyway V1이 확장을 만듭니다. prod RDS는 관리자가 PostGIS를 사전 설치하고 migrator 계정의 일회성 Flyway가 V1~V6를 적용합니다. DB 컨테이너만 처음 실행한 시점에는 확장이 활성화되지 않은 것이 정상입니다.
 
 서버 실행 후 아래 명령으로 확인합니다. `.env`에서 DB 이름·사용자를 바꾼 경우 SQL 명령의 인자도 변경합니다.
 
@@ -206,7 +212,7 @@ DB_USERNAME=igilro_app DB_PASSWORD=replace_with_secret \
 java -jar build/libs/igilro-server-0.0.1-SNAPSHOT.jar
 ```
 
-prod의 자동 Flyway는 비활성화입니다. 운영 DB 관리자가 PostGIS를 사전 설치한 뒤 migration 작업에 `SPRING_FLYWAY_ENABLED=true`, `SPRING_MAIN_WEB_APPLICATION_TYPE=none`과 별도 migrator DB 계정을 전달합니다. 실제 운영 비밀은 Secrets Manager에서 주입합니다. [인프라 초기화 절차](https://github.com/YunJaem06/igilro-infra/blob/main/docs/database-initialization.md)를 참고합니다. 기존 migration은 수정하지 않고 V4부터 추가하며 baseline/clean을 자동 실행하지 않습니다.
+prod의 자동 Flyway는 비활성화입니다. 운영 DB 관리자가 PostGIS를 사전 설치한 뒤 migration 작업에 `SPRING_FLYWAY_ENABLED=true`, `SPRING_MAIN_WEB_APPLICATION_TYPE=none`과 별도 migrator DB 계정을 전달합니다. 실제 운영 비밀은 Secrets Manager에서 주입합니다. [인프라 초기화 절차](https://github.com/YunJaem06/igilro-infra/blob/main/docs/database-initialization.md)를 참고합니다. 현재 V6까지 있으며 다음 변경은 V7부터 추가합니다. 기존 migration은 수정하지 않고 baseline/clean을 자동 실행하지 않습니다.
 
 ## 설계와 후속 작업
 
@@ -223,5 +229,6 @@ prod의 자동 Flyway는 비활성화입니다. 운영 DB 관리자가 PostGIS�
 - [Phase 4 그늘 경로 최적화·검증](docs/phase-4-shade-routing.md)
 - [서울숲 50m 현장 확인 지정·공공 원본 재검증](docs/pilot-field-review-2026-10-27.md)
 - [초기 분석·변경 내역·검증 결과](docs/phase-1-verification.md)
+- [2026-10-31 최신 변경 점검·실행 결과와 필요한 설정](docs/server-review-2026-10-31.md)
 
 다음 단계는 실제 건물 목록·직접 높이·주변 상한과 지상 보행 맥락을 검증해 shade 평가 구역을 확보하는 작업입니다. 장소 공급자 키/국내 품질과 Flutter 출처 표시, 보행 데이터 품질, 기타 환경 점수·복수 조건 가중치 검증도 남아 있습니다.

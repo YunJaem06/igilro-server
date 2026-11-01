@@ -60,7 +60,7 @@ Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type:
 | 405 | `METHOD_NOT_ALLOWED` | 지원하지 않는 HTTP 메서드; Allow 헤더 유지 |
 | 406 | `NOT_ACCEPTABLE` | 지원하지 않는 응답 형식 |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | 지원하지 않는 본문 형식 |
-| 429 | `TOO_MANY_REQUESTS` | 공통 매핑. 장소 검색에는 실제 프로세스별 요청 제한·공급자 429 변환 적용 |
+| 429 | `TOO_MANY_REQUESTS` | 장소 검색 제한·공급자 429 변환 또는 일반/모델 경로 검색의 공유 요청 한도 초과 |
 | 500 | `INTERNAL_SERVER_ERROR` | 예상하지 못한 서버 오류 |
 | 503 | `SERVICE_UNAVAILABLE` | 현재 상태 API에서 공간 DB 사용 불가 |
 
@@ -70,14 +70,15 @@ Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type:
 
 공공 모델 예측은 별도 `POST /api/v1/routes/predictions/search`를 사용합니다. 전체 비율과 `routes[].shadeSegments`의 연속된 `SHADE`/`SUNLIGHT` GeoJSON 구간을 제공합니다. `GET /api/v1/routes/predictions/coverage`에서 현재 bounds·실제 제공 보행망·출입 지점·연결성 통계·최대 스냅 거리 50m를 조회합니다. 앱에 과거 300m 실험 범위를 고정하지 않습니다. 구간 누적 거리, DTO, 실제 캡처는 [모델 예측 계약](model-based-shade-prediction.md)에 있습니다. 기존 직접 높이 API의 `metrics`·`shadeEvaluation`과 혼합하지 않습니다.
 
-Phase 2 경로 검색은 아래 업무 코드를 구현했습니다. 요청 제한 기능은 아직 미구현입니다.
+경로 검색은 아래 업무 코드를 구현했습니다. 두 POST 검색 API는 프로세스별 token bucket과 동시 실행 슬롯을 공유합니다. 기본 초당 4건·순간 4건·동시 계산 2건이며, health·coverage 조회는 이 한도를 사용하지 않습니다. [설정·재시도·검증](route-search-limits.md)을 참고합니다.
 
 | HTTP | code | 적용 범위 |
 | --- | --- | --- |
 | 400 | `INVALID_ROUTE_QUERY` | 파싱·일반 검증을 통과했지만 경로 조건이 유효하지 않음 |
 | 422 | `OUTSIDE_SUPPORTED_AREA` | 유효한 좌표가 확정된 서비스 지역 밖 |
 | 404 | `ROUTE_NOT_FOUND` | 사용 가능한 데이터와 지역 안에서 연결 가능한 보행 경로 없음 |
-| 429 | `TOO_MANY_REQUESTS` | 요청 제한 도입 시 적용, 재시도 가능 시 Retry-After 제공 |
+| 429 | `TOO_MANY_REQUESTS` | 공유 token bucket의 요청 한도 초과. Retry-After 제공 |
+| 503 | `ROUTE_SEARCH_BUSY` | 일반·모델 검색의 동시 계산 슬롯 부족. 대기열 없이 거절하고 Retry-After 제공 |
 | 503 | `ROUTING_DATA_UNAVAILABLE` | 경로 그래프·필수 경로 데이터 준비되지 않음 |
 | 503 | `SHADE_DATA_UNAVAILABLE` | shade의 기준/후보 구간 전체를 같은 자료로 평가할 수 없거나 지상 보행 그래프 미검증 |
 | 422 | `SHADE_TIME_UNSUPPORTED` | shade 요청 시 밤·낮은 태양 고도·지원 연도 밖 |
