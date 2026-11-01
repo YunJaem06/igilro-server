@@ -26,7 +26,7 @@ def main():
     try:
         with psycopg.connect(host=url.hostname,port=url.port or 5432,dbname=url.path.lstrip("/"),
                 user=config.get("DB_USERNAME",config.get("POSTGRES_USER","igilro")),
-                password=config.get("DB_PASSWORD",config.get("POSTGRES_PASSWORD","igilro"))) as connection:
+                password=config.get("DB_PASSWORD",config.get("POSTGRES_PASSWORD","igilro_local"))) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SET TRANSACTION READ ONLY")
                 cursor.execute("SET LOCAL statement_timeout='45s'")
