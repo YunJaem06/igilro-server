@@ -9,5 +9,6 @@ class IgilroServerApplication
 fun main(args: Array<String>) {
     val context = runApplication<IgilroServerApplication>(*args)
     if (context.environment.containsProperty("igilro.graph-import.file") ||
-        context.environment.containsProperty("igilro.building-import.file")) context.close()
+        context.environment.containsProperty("igilro.building-import.file") ||
+        context.environment.getProperty("igilro.route-data.import-graph", Boolean::class.java, false)) context.close()
 }

@@ -129,6 +129,41 @@ class RouteIntegrationTest {
     }
 
     @Test
+    fun `deployment initializer only creates an empty graph set or reuses the exact active snapshot`() {
+        assertTrue(importer.execute(graph, GraphImportPolicy.INITIALIZE_OR_REUSE).reused)
+        val replacement = graph.copy(dataVersion = "osm-v1-" + "9".repeat(64))
+        assertFailsWith<IllegalArgumentException> { importer.execute(replacement, GraphImportPolicy.INITIALIZE_OR_REUSE) }
+        assertEquals(graph.dataVersion, repository.findActiveGraphs().single().dataVersion)
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM route_dataset WHERE id=?", Int::class.java, replacement.dataVersion))
+
+        jdbc.execute("DELETE FROM route_service_area")
+        assertFalse(importer.execute(replacement, GraphImportPolicy.INITIALIZE_OR_REUSE).reused)
+        assertTrue(importer.execute(replacement, GraphImportPolicy.INITIALIZE_OR_REUSE).reused)
+        assertFailsWith<IllegalArgumentException> { importer.execute(graph, GraphImportPolicy.INITIALIZE_OR_REUSE) }
+        assertEquals(replacement.dataVersion, repository.findActiveGraphs().single().dataVersion)
+    }
+
+    @Test
+    fun `competing initializers cannot replace a committed deployment graph`() {
+        jdbc.execute("DELETE FROM route_service_area")
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(2)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val versions = listOf("7", "8").map { graph.copy(dataVersion = "osm-v1-" + it.repeat(64)) }
+        try {
+            val futures = versions.map { snapshot -> executor.submit<Boolean> {
+                start.await()
+                try { importer.execute(snapshot, GraphImportPolicy.INITIALIZE_OR_REUSE); true }
+                catch (_: IllegalArgumentException) { false }
+            } }
+            start.countDown()
+            assertEquals(1, futures.count { it.get(10, java.util.concurrent.TimeUnit.SECONDS) })
+            assertTrue(repository.findActiveGraphs().single().dataVersion in versions.map { it.dataVersion })
+            assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM route_dataset WHERE id IN (?,?)", Int::class.java,
+                versions[0].dataVersion, versions[1].dataVersion))
+        } finally { executor.shutdownNow() }
+    }
+
+    @Test
     fun `reusing a version with different snapshot contents fails without replacing active data`() {
         val changedNode = graph.nodes.entries.first()
         val changedEdge = graph.edges.first()

@@ -3,9 +3,10 @@ package com.igilro.server.route.application
 import com.igilro.server.route.domain.GraphImport
 import com.igilro.server.route.domain.GraphImportRepository
 import com.igilro.server.route.domain.GraphImportSummary
+import com.igilro.server.route.domain.GraphImportPolicy
 
 class ImportWalkingGraphUseCase(private val repository: GraphImportRepository) {
-    fun execute(graph: GraphImport): GraphImportSummary {
+    fun execute(graph: GraphImport, policy: GraphImportPolicy = GraphImportPolicy.REPLACE_ALLOWED): GraphImportSummary {
         require(graph.areaId.matches(Regex("[a-z0-9][a-z0-9-]{0,63}")))
         require(graph.dataVersion.matches(Regex("osm-v1-[a-f0-9]{64}")))
         require(graph.checksum.matches(Regex("[a-f0-9]{64}")))
@@ -24,6 +25,6 @@ class ImportWalkingGraphUseCase(private val repository: GraphImportRepository) {
             val ways=graph.edges.associate { it.id to it.wayId }
             require(graph.edgeGuidance.keys==ways.keys && graph.edgeGuidance.all { (id,metadata) -> metadata.osmWayId==ways[id] })
         }
-        return repository.save(graph)
+        return repository.save(graph, policy)
     }
 }

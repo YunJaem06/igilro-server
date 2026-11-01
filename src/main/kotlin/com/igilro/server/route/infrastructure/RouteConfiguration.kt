@@ -11,6 +11,7 @@ import com.igilro.server.route.application.ModelPredictionSource
 import com.igilro.server.route.application.SearchModelPredictionUseCase
 import com.igilro.server.route.application.RouteSearchAdmission
 import com.igilro.server.route.infrastructure.prediction.FileModelPredictionSource
+import com.igilro.server.route.infrastructure.data.RouteDataFiles
 import java.nio.file.Path
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -27,8 +28,10 @@ class RouteConfiguration {
     )
 
     @Bean
-    fun modelPredictionSource(@Value("\${igilro.shade-prediction.file:}") file: String): ModelPredictionSource =
-        FileModelPredictionSource(file.takeIf { it.isNotBlank() }?.let(Path::of))
+    fun modelPredictionSource(@Value("\${igilro.shade-prediction.file:}") file: String, data: RouteDataFiles): ModelPredictionSource {
+        require(data.prepared == null || file.isBlank()) { "Choose the local prediction file or pinned S3 dataset, not both" }
+        return FileModelPredictionSource(data.prepared?.directory?.resolve("scene.json") ?: file.takeIf { it.isNotBlank() }?.let(Path::of))
+    }
 
     @Bean
     fun searchModelPredictionUseCase(source: ModelPredictionSource, clock: Clock, admission: RouteSearchAdmission) =

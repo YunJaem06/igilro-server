@@ -57,6 +57,12 @@ logging:
     level: "%5p [requestId:%X{requestId:-}]"
 
 igilro:
+  route-data:
+    bucket: ${ROUTE_DATA_BUCKET:}
+    manifest-key: ${ROUTE_DATA_MANIFEST_KEY:}
+    manifest-version-id: ${ROUTE_DATA_MANIFEST_VERSION_ID:}
+    manifest-sha256: ${ROUTE_DATA_MANIFEST_SHA256:}
+    directory: ${ROUTE_DATA_DIRECTORY:/tmp/igilro-route-data}
   route-search:
     requests-per-second: ${ROUTE_SEARCH_REQUESTS_PER_SECOND:4}
     burst-capacity: ${ROUTE_SEARCH_BURST_CAPACITY:4}

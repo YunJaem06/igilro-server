@@ -14,9 +14,13 @@ class JdbcGraphImportRepository(
 ) : GraphImportRepository {
     private val transaction = TransactionTemplate(transactionManager)
 
-    override fun save(graph: GraphImport): GraphImportSummary = transaction.execute {
+    override fun save(graph: GraphImport, policy: GraphImportPolicy): GraphImportSummary = transaction.execute {
         // Serialize imports, while route requests keep reading the previous committed dataset.
         jdbc.execute("SELECT pg_advisory_xact_lock(73694117)")
+        if (policy == GraphImportPolicy.INITIALIZE_OR_REUSE) {
+            val active = jdbc.query("SELECT id,active_dataset_id FROM route_service_area ORDER BY id", { row, _ -> row.getString(1) to row.getString(2) })
+            require(active.isEmpty() || active == listOf(graph.areaId to graph.dataVersion)) { "Automatic initialization cannot change the active walking graph set" }
+        }
         val reused = jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM route_dataset WHERE id = ?)", Boolean::class.java, graph.dataVersion) == true
         if (reused) {
             verifyExistingSnapshot(graph)

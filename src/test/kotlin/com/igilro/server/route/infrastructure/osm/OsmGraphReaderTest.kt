@@ -51,7 +51,7 @@ class OsmGraphReaderTest {
     @Test
     fun `invalid imports do not reach persistence`() {
         var called = false
-        val importer = ImportWalkingGraphUseCase(GraphImportRepository { called = true; error("Should not persist") })
+        val importer = ImportWalkingGraphUseCase(GraphImportRepository { _, _ -> called = true; error("Should not persist") })
         assertFailsWith<IllegalArgumentException> { importer.execute(read().copy(edges = emptyList())) }
         assertFalse(called)
     }

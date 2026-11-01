@@ -25,5 +25,9 @@ data class GraphImport(
 data class GraphImportSummary(val dataVersion: String, val nodeCount: Int, val edgeCount: Int, val reused: Boolean)
 
 fun interface GraphImportRepository {
-    fun save(graph: GraphImport): GraphImportSummary
+    fun save(graph: GraphImport, policy: GraphImportPolicy): GraphImportSummary
+
+    fun save(graph: GraphImport): GraphImportSummary = save(graph, GraphImportPolicy.REPLACE_ALLOWED)
 }
+
+enum class GraphImportPolicy { REPLACE_ALLOWED, INITIALIZE_OR_REUSE }
