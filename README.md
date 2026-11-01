@@ -94,7 +94,9 @@ KAKAO_REST_API_KEY=발급받은_실제_REST_API_키
 docker build -t igilro-server:local .
 ```
 
-[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크·ECR·RDS·ECS Fargate·ALB는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. prod 앱의 Flyway는 기본적으로 꺼져 있으며 동일 배포 아티팩트의 일회성 migration을 먼저 실행합니다. [배포 워크플로](.github/workflows/deploy.yml)는 OIDC 인증으로 이미지 발행 → 선택적 DB 초기화 → Flyway → 서비스 갱신 → health 검증을 수행합니다. [최초 적용과 GitHub 변수 설정](https://github.com/YunJaem06/igilro-infra/blob/main/docs/ecs-deployment.md)을 먼저 완료한 뒤 main에서 수동 실행합니다.
+[컨테이너 실행과 검증](docs/container.md)에 로컬 PostGIS 연결 방법을 정리했습니다. AWS 네트워크·ECR·RDS·ECS Fargate·ALB는 별도 [igilro-infra](https://github.com/YunJaem06/igilro-infra)에서 관리합니다. prod 앱의 Flyway는 기본적으로 꺼져 있으며 동일 배포 아티팩트의 일회성 migration을 먼저 실행합니다. [배포 워크플로](.github/workflows/deploy.yml)는 OIDC 인증으로 이미지 발행 → 선택적 DB 초기화 → Flyway → 경로 데이터 초기화 → 서비스 갱신 → health·경로·장소 검색 검증을 수행합니다. [최초 적용과 GitHub 변수 설정](https://github.com/YunJaem06/igilro-infra/blob/main/docs/ecs-deployment.md)을 먼저 완료한 뒤 main에서 수동 실행합니다.
+
+[S3 버전 고정 데이터와 ECS 초기화](docs/runtime-route-data.md)에 런타임 변수, 검증 조건과 롤백 범위를 정리했습니다.
 
 ## Flutter 연결 주소
 
