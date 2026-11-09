@@ -2,6 +2,7 @@ package com.igilro.server.route.application
 
 import com.igilro.server.route.domain.*
 import java.time.Clock
+import java.time.Instant
 import com.igilro.server.route.domain.shade.*
 
 class SearchWalkingRouteUseCase(
@@ -16,7 +17,7 @@ class SearchWalkingRouteUseCase(
     private val groundVerifiedDatasets: Set<String> = emptySet(),
 ) {
     fun execute(query: RouteQuery): RouteSearchResult {
-        if (query.travelMode != "walking" || query.mode !in setOf("fastest", "shade") ||
+        if (query.travelMode != "walking" || query.mode !in setOf("fastest", "shade", "running") ||
             query.origin == query.destination
         ) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
         return admission.execute { search(query) }
@@ -33,6 +34,7 @@ class SearchWalkingRouteUseCase(
             ?: throw RouteFailure(RouteFailureReason.OUTSIDE_SUPPORTED_AREA)
         if (query.origin.distanceTo(query.destination) > 5_000) throw RouteFailure(RouteFailureReason.INVALID_QUERY)
         val route = planner.find(graph, query.origin, query.destination, 50.0)
+        if (query.mode == "running") return compareRunning(graph, route, evaluatedAt)
         val shade = shadeEvaluator.evaluate(graph.areaId, route.coordinates, evaluatedAt)
         if (query.mode == "fastest") return RouteSearchResult(route, graph.dataVersion, evaluatedAt, shade,
             guidance=RouteGuidanceGenerator().generate(graph,route))
@@ -53,5 +55,26 @@ class SearchWalkingRouteUseCase(
         val optimized = optimizer.find(network, measurements)
         return RouteSearchResult(optimized.route, graph.dataVersion, evaluatedAt, optimized.shade, "shade", route.durationSeconds,
             RouteGuidanceGenerator().generate(graph,optimized.route))
+    }
+
+    private fun compareRunning(graph: WalkingGraph, fastest: WalkingRoute, evaluatedAt: Instant): RouteSearchResult {
+        if (graph.guidanceMetadataVersion == null) throw RouteFailure(RouteFailureReason.RUNNING_DATA_UNAVAILABLE)
+        val optimizer = RunningRouteOptimizer()
+        val running = optimizer.find(graph, fastest)
+        val generator = RouteGuidanceGenerator()
+        val fastestGuidance = generator.generate(graph, fastest)
+        val runningGuidance = generator.generate(graph, running)
+        return RouteSearchResult(
+            route = running,
+            dataVersion = graph.dataVersion,
+            evaluatedAt = evaluatedAt,
+            mode = "running",
+            baselineDurationSeconds = fastest.durationSeconds,
+            guidance = runningGuidance,
+            runningComparison = RunningRouteComparison(
+                fastest, fastestGuidance, optimizer.metrics(graph, fastest, fastestGuidance),
+                optimizer.metrics(graph, running, runningGuidance),
+            ),
+        )
     }
 }

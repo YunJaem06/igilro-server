@@ -16,6 +16,10 @@ data class RouteMetricsResponse(
     val quietScore: Double? = null,
     val lightingScore: Double? = null,
     val trafficSignalCount: Int? = null,
+    @field:Schema(description = "러닝 비교의 계단 통과 거리(m)", minimum = "0")
+    val stairsMeters: Double? = null,
+    @field:Schema(description = "러닝 비교의 OSM에 표시된 횡단 횟수", minimum = "0")
+    val mappedCrossingCount: Int? = null,
 )
 
 data class ShadeEvaluationResponse(
@@ -31,7 +35,7 @@ data class ShadeEvaluationResponse(
 
 data class RouteResponse(
     @field:Schema(description = "응답 안에서 경로를 식별하는 값. 저장·재조회 기능은 미지원", requiredMode = Schema.RequiredMode.REQUIRED) val id: String,
-    @field:Schema(allowableValues = ["fastest", "shade"], requiredMode = Schema.RequiredMode.REQUIRED) val mode: String = "fastest",
+    @field:Schema(allowableValues = ["fastest", "shade", "running"], requiredMode = Schema.RequiredMode.REQUIRED) val mode: String = "fastest",
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val geometry: LineStringResponse,
     @field:Schema(description = "스냅된 두 지점 사이의 보행 그래프 거리(m)", requiredMode = Schema.RequiredMode.REQUIRED) val distanceMeters: Double,
     @field:Schema(description = "보행/계단 속도 모델의 예상 소요 시간(초), 올림 정수", requiredMode = Schema.RequiredMode.REQUIRED) val durationSeconds: Long,

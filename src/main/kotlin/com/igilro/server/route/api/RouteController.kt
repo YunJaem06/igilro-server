@@ -14,16 +14,16 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/routes")
-@Tag(name = "Routes", description = "실제 보행 그래프 기반 fastest 및 검증된 건물 자료의 shade 경로")
+@Tag(name = "Routes", description = "실제 보행 그래프 기반 fastest, running 및 검증된 건물 자료의 shade 경로")
 class RouteController(private val search: SearchWalkingRouteUseCase) {
     @PostMapping("/search", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.APPLICATION_JSON_VALUE])
-    @Operation(summary = "도보 경로 검색", operationId = "searchWalkingRoute", description = "지원 지역 안에서 5km 이하의 두 지점을 최대 50m 범위의 보행 구간에 연결합니다. shade는 같은 스냅 지점에서 최단 시간 대비 30% 이내로 햇빛 노출 시간을 최소화하며 자료 부족 시 503을 반환합니다.")
-    @ApiResponse(responseCode = "200", description = "요청한 mode의 도보 경로 1개")
+    @Operation(summary = "도보 경로 검색", operationId = "searchWalkingRoute", description = "지원 지역 안에서 5km 이하의 두 지점을 최대 50m 범위의 보행 구간에 연결합니다. shade는 같은 스냅에서 최단 시간 대비 30% 이내로 햇빛 노출 시간을 최소화합니다. running은 같은 한도에서 계단 거리와 OSM에 표시된 횡단을 줄입니다.")
+    @ApiResponse(responseCode = "200", description = "fastest와 shade는 요청한 경로 1개, running은 같은 스냅의 fastest와 running 경로 각 1개")
     @ApiResponse(responseCode = "400", description = "INVALID_REQUEST 또는 INVALID_ROUTE_QUERY", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "404", description = "ROUTE_NOT_FOUND", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "422", description = "OUTSIDE_SUPPORTED_AREA 또는 SHADE_TIME_UNSUPPORTED", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "429", description = "TOO_MANY_REQUESTS: 일반·모델 검색의 공유 요청 한도 초과", headers = [Header(name = "Retry-After", description = "재시도 전 대기할 최소 초", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
-    @ApiResponse(responseCode = "503", description = "ROUTING_DATA_UNAVAILABLE / SHADE_DATA_UNAVAILABLE / ROUTE_SEARCH_LIMIT_EXCEEDED / ROUTE_SEARCH_BUSY. BUSY에는 Retry-After 제공", headers = [Header(name = "Retry-After", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
+    @ApiResponse(responseCode = "503", description = "ROUTING_DATA_UNAVAILABLE / SHADE_DATA_UNAVAILABLE / RUNNING_DATA_UNAVAILABLE / ROUTE_SEARCH_LIMIT_EXCEEDED / ROUTE_SEARCH_BUSY. BUSY에는 Retry-After 제공", headers = [Header(name = "Retry-After", schema = Schema(type = "integer", minimum = "1"))], content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "500", description = "INTERNAL_SERVER_ERROR", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     fun search(@Valid @RequestBody request: RouteSearchRequest) = RouteMapper.toResponse(search.execute(RouteMapper.toQuery(request)))
 }

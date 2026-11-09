@@ -18,7 +18,7 @@ data class RouteSearchRequest(
     @field:Valid @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val origin: CoordinateRequest,
     @field:Valid @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val destination: CoordinateRequest,
     @field:NotBlank @field:Schema(allowableValues = ["walking"], defaultValue = "walking", requiredMode = Schema.RequiredMode.NOT_REQUIRED) val travelMode: String = "walking",
-    @field:NotBlank @field:Schema(description = "shade는 최단 시간 대비 30% 이내에서 햇빛 노출 시간을 최소화. sunlight는 모델 예측 API에서만 같은 한도에서 그늘 통과 시간을 최소화", allowableValues = ["fastest", "shade", "sunlight"], defaultValue = "fastest", requiredMode = Schema.RequiredMode.NOT_REQUIRED) val mode: String = "fastest",
+    @field:NotBlank @field:Schema(description = "일반 검색은 fastest, shade, running을 지원하고 모델 예측은 fastest, shade, sunlight를 지원합니다.", allowableValues = ["fastest", "shade", "sunlight", "running"], defaultValue = "fastest", requiredMode = Schema.RequiredMode.NOT_REQUIRED) val mode: String = "fastest",
     @field:Schema(description = "오프셋을 포함한 출발 시각. 생략하면 서버의 현재 UTC 시각 사용", example = "2026-10-10T14:00:00+09:00")
     val departureAt: OffsetDateTime? = null,
 )

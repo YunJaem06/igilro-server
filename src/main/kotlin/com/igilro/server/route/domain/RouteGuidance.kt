@@ -65,12 +65,7 @@ class RouteGuidanceGenerator {
             // Parallel duplicate edges to the same neighbor are one option. A geometric
             // intersection without a shared source node is never a walking junction.
             val options = graph.adjacency[node].orEmpty().filter { it.to != incomingNeighbor }.distinctBy { it.to }
-            val crossing = when {
-                after.metadata?.crossing != null && (before.metadata?.crossing == null ||
-                    before.metadata.osmWayId != after.metadata.osmWayId) -> after.metadata.crossing
-                before.metadata?.crossing != null || after.metadata?.crossing != null -> null
-                else -> graph.nodeGuidance[node]?.crossing
-            }
+            val crossing = graph.crossingAt(node, before.metadata, after.metadata)
             val branch = options.size > 1
             val stairs = after.edge.kind == EdgeKind.STEPS && before.edge.kind != EdgeKind.STEPS
             if(!branch && crossing == null && !stairs) continue

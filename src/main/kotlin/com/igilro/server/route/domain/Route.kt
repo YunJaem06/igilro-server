@@ -50,4 +50,12 @@ data class RouteSearchResult(
     val mode: String = "fastest",
     val baselineDurationSeconds: Double = route.durationSeconds,
     val guidance: RouteGuidance? = null,
+    val runningComparison: RunningRouteComparison? = null,
+)
+
+data class RunningRouteComparison(
+    val fastest: WalkingRoute,
+    val fastestGuidance: RouteGuidance,
+    val fastestMetrics: RunningRouteMetrics,
+    val runningMetrics: RunningRouteMetrics,
 )

@@ -14,11 +14,11 @@ class ShadeRouteOptimizerTest {
     private fun graph(detour: Double = 250.0) = WalkingGraph("fixture", "test", bounds,
         mapOf(1L to a, 2L to b, 3L to c),
         listOf(WalkingEdge(1, 1, 2, 200.0), WalkingEdge(2, 1, 3, detour / 2), WalkingEdge(3, 3, 2, detour / 2)))
-    private fun measurements(network: ShadeRouteOptimizer.Network, ratio: (ShadeRouteOptimizer.Section) -> Double) =
+    private fun measurements(network: ShadeRouteOptimizer.Network, graph: WalkingGraph, ratio: (ShadeRouteOptimizer.Section) -> Double) =
         listOf(ShadePathMeasurement(ShadeEvaluation(ShadeStatus.AVAILABLE, 0.0, 1.0, "buildings", "fixture", 60.0), 200.0)) +
             network.sections.map { section ->
                 ShadePathMeasurement(ShadeEvaluation(ShadeStatus.AVAILABLE, ratio(section), 1.0, "buildings", "fixture", 60.0),
-                    network.graph.edges.single { it.id == section.edgeId }.distanceMeters * (section.to - section.from))
+                    graph.edges.single { it.id == section.edgeId }.distanceMeters * (section.to - section.from))
             }
 
     @Test
@@ -26,7 +26,7 @@ class ShadeRouteOptimizerTest {
         val g = graph()
         val baseline = DijkstraRoutePlanner().find(g, a, b, 50.0)
         val network = optimizer.prepare(g, baseline)
-        val result = optimizer.find(network, measurements(network) { if (it.edgeId == 1L) 0.0 else 1.0 })
+        val result = optimizer.find(network, measurements(network, g) { if (it.edgeId == 1L) 0.0 else 1.0 })
         assertEquals(listOf(a, c, b), result.route.coordinates)
         assertEquals(250.0, result.route.distanceMeters)
         assertEquals(1.0, result.shade.ratio)
@@ -44,7 +44,7 @@ class ShadeRouteOptimizerTest {
             val network = optimizer.prepare(g, baseline)
             val result = optimizer.find(
                 network,
-                measurements(network) { if (it.edgeId == 1L) 1.0 else 0.0 },
+                measurements(network, g) { if (it.edgeId == 1L) 1.0 else 0.0 },
                 ShadeRouteOptimizer.Exposure.SHADE,
             )
             assertEquals(if (detour == 260.0) listOf(a, c, b) else listOf(a, b), result.route.coordinates)
@@ -52,7 +52,7 @@ class ShadeRouteOptimizerTest {
             assertEquals(baseline.origin, result.route.origin)
             assertEquals(baseline.destination, result.route.destination)
 
-            val equal = optimizer.find(network, measurements(network) { 0.0 }, ShadeRouteOptimizer.Exposure.SHADE)
+            val equal = optimizer.find(network, measurements(network, g) { 0.0 }, ShadeRouteOptimizer.Exposure.SHADE)
             assertEquals(baseline.coordinates, equal.route.coordinates)
         }
     }
@@ -62,7 +62,7 @@ class ShadeRouteOptimizerTest {
         for (detour in listOf(260.0, 260.01)) {
             val g = graph(detour)
             val network = optimizer.prepare(g, DijkstraRoutePlanner().find(g, a, b, 50.0))
-            val result = optimizer.find(network, measurements(network) { if (it.edgeId == 1L) 0.0 else 1.0 })
+            val result = optimizer.find(network, measurements(network, g) { if (it.edgeId == 1L) 0.0 else 1.0 })
             assertEquals(if (detour == 260.0) detour else 200.0, result.route.distanceMeters, 1e-8)
         }
     }
@@ -72,10 +72,10 @@ class ShadeRouteOptimizerTest {
         val g = graph()
         val network = optimizer.prepare(g, DijkstraRoutePlanner().find(g, a, b, 50.0))
         for (ratio in listOf(0.0, 1.0)) {
-            assertEquals(listOf(a, b), optimizer.find(network, measurements(network) { ratio }).route.coordinates)
+            assertEquals(listOf(a, b), optimizer.find(network, measurements(network, g) { ratio }).route.coordinates)
         }
         // A higher shade percentage alone can still leave more time in the sun.
-        assertEquals(listOf(a, b), optimizer.find(network, measurements(network) { if (it.edgeId == 1L) 0.2 else 0.3 }).route.coordinates)
+        assertEquals(listOf(a, b), optimizer.find(network, measurements(network, g) { if (it.edgeId == 1L) 0.2 else 0.3 }).route.coordinates)
     }
 
     @Test
@@ -83,7 +83,7 @@ class ShadeRouteOptimizerTest {
         val g = graph()
         val baseline = DijkstraRoutePlanner().find(g, Coordinate(127.0305, 37.54), Coordinate(127.0315, 37.54), 50.0)
         val network = optimizer.prepare(g, baseline)
-        val result = optimizer.find(network, measurements(network) { section ->
+        val result = optimizer.find(network, measurements(network, g) { section ->
             if (section.from > 0 && section.to < 1) 1.0 else 0.0
         })
         assertEquals(baseline.coordinates, result.route.coordinates)
@@ -100,7 +100,7 @@ class ShadeRouteOptimizerTest {
             WalkingEdge(1, 1, 2, 200.0), WalkingEdge(2, 3, 1, 110.0, backwardAllowed = false),
             WalkingEdge(3, 3, 2, 110.0, backwardAllowed = false)))
         val network = optimizer.prepare(g, DijkstraRoutePlanner().find(g, a, b, 50.0))
-        assertEquals(listOf(a, b), optimizer.find(network, measurements(network) { if (it.edgeId == 1L) 0.0 else 1.0 }).route.coordinates)
+        assertEquals(listOf(a, b), optimizer.find(network, measurements(network, g) { if (it.edgeId == 1L) 0.0 else 1.0 }).route.coordinates)
     }
 
     @Test
@@ -114,7 +114,7 @@ class ShadeRouteOptimizerTest {
         val baseline = DijkstraRoutePlanner().find(g,a,b,50.0)
         assertEquals(100.0,baseline.durationSeconds,1e-8)
         val network=optimizer.prepare(g,baseline)
-        val result=optimizer.find(network,measurements(network) { when(it.edgeId) { 1L -> 0.25; 4L -> 0.0; else -> 1.0 } })
+        val result=optimizer.find(network,measurements(network, g) { when(it.edgeId) { 1L -> 0.25; 4L -> 0.0; else -> 1.0 } })
         assertEquals(listOf(a,c,d,b),result.route.coordinates)
         assertEquals(125.0,result.route.durationSeconds,1e-8)
     }
@@ -123,7 +123,7 @@ class ShadeRouteOptimizerTest {
     fun `missing coverage mixed versions and incomplete result sets fail closed`() {
         val g = graph()
         val network = optimizer.prepare(g, DijkstraRoutePlanner().find(g,a,b,50.0))
-        val valid = measurements(network) { 0.5 }
+        val valid = measurements(network, g) { 0.5 }
         for (invalid in listOf(valid.dropLast(1), valid.mapIndexed { i,v -> if(i==1) v.copy(evaluation=v.evaluation.copy(dataVersion="other")) else v },
             valid.mapIndexed { i,v -> if(i==1) ShadePathMeasurement(ShadeEvaluation(ShadeStatus.INCOMPLETE_COVERAGE,coverage=0.9)) else v })) {
             assertEquals(RouteFailureReason.SHADE_DATA_UNAVAILABLE, assertFailsWith<RouteFailure> { optimizer.find(network,invalid) }.reason)
@@ -135,7 +135,7 @@ class ShadeRouteOptimizerTest {
         val g = graph()
         val network = optimizer.prepare(g, DijkstraRoutePlanner().find(g,a,b,50.0))
         assertEquals(RouteFailureReason.SEARCH_LIMIT_EXCEEDED,assertFailsWith<RouteFailure> {
-            ShadeRouteOptimizer(maximumLabels=1).find(network,measurements(network) { 0.5 })
+            ShadeRouteOptimizer(maximumLabels=1).find(network,measurements(network, g) { 0.5 })
         }.reason)
     }
 
@@ -144,7 +144,7 @@ class ShadeRouteOptimizerTest {
         val g=WalkingGraph("fixture","test",bounds,mapOf(1L to a,2L to b,3L to c),listOf(
             WalkingEdge(1,1,3,100.0,EdgeKind.STEPS),WalkingEdge(2,3,2,100.0)))
         val network=optimizer.prepare(g,DijkstraRoutePlanner().find(g,a,b,50.0))
-        val values=measurements(network) { if(it.edgeId==1L) 1.0 else 0.0 }.mapIndexed { index,value ->
+        val values=measurements(network, g) { if(it.edgeId==1L) 1.0 else 0.0 }.mapIndexed { index,value ->
             if(index==0) value else value.copy(lengthMeters=if(network.sections[index-1].edgeId==1L) 10.0 else 90.0)
         }
         val result=optimizer.find(network,values)
@@ -165,7 +165,7 @@ class ShadeRouteOptimizerTest {
             val g=WalkingGraph("fixture","test",bounds,nodes,edges)
             val baseline=DijkstraRoutePlanner().find(g,nodes.getValue(1),nodes.getValue(6),50.0)
             val network=optimizer.prepare(g,baseline)
-            val result=optimizer.find(network,measurements(network) { ratios.getValue(it.edgeId) })
+            val result=optimizer.find(network,measurements(network, g) { ratios.getValue(it.edgeId) })
             val possible=mutableListOf<Pair<Double,Double>>()
             fun enumerate(node: Long, seconds: Double, exposed: Double) {
                 if(seconds>baseline.durationSeconds*1.3+1e-8) return

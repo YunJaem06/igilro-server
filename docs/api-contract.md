@@ -80,6 +80,7 @@ Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type:
 | 429 | `TOO_MANY_REQUESTS` | 공유 token bucket의 요청 한도 초과. Retry-After 제공 |
 | 503 | `ROUTE_SEARCH_BUSY` | 일반·모델 검색의 동시 계산 슬롯 부족. 대기열 없이 거절하고 Retry-After 제공 |
 | 503 | `ROUTING_DATA_UNAVAILABLE` | 경로 그래프·필수 경로 데이터 준비되지 않음 |
+| 503 | `RUNNING_DATA_UNAVAILABLE` | 활성 보행 그래프에 횡단 메타데이터가 없어 러닝길 비교를 할 수 없음 |
 | 503 | `SHADE_DATA_UNAVAILABLE` | shade의 기준/후보 구간 전체를 같은 자료로 평가할 수 없거나 지상 보행 그래프 미검증 |
 | 422 | `SHADE_TIME_UNSUPPORTED` | shade 요청 시 밤·낮은 태양 고도·지원 연도 밖 |
 | 503 | `ROUTE_SEARCH_LIMIT_EXCEEDED` | 그늘 후보 구간 수·탐색 자원 제한 초과. 불완전한 탐색 결과를 성공으로 반환하지 않음 |
@@ -108,7 +109,13 @@ Spring MVC 요청 처리 오류와 앱용 상태 API의 장애는 `Content-Type:
 
 GeoJSON 좌표는 도(degree) 단위이므로 미터 거리 계산에는 `geography` 또는 적절한 투영 좌표계를 사용합니다. 그림자와 보행 구간의 교차 길이도 일관된 미터 단위 좌표계에서 계산합니다. 그늘 비율은 그림자 영역을 합집합 처리한 뒤 `그늘과 겹치는 보행 길이 / 전체 보행 길이`로 평가하며 높이 누락과 자료 품질을 함께 기록합니다.
 
-현재 모델의 거리·시간은 스냅 지점 사이의 네트워크 경로를 기준으로 합니다. 접근 거리와 실제 끝점을 snapping으로 함께 제공합니다. 보행 1.4m/s·계단 0.9m/s의 정적 모델이며 신호 대기는 포함하지 않습니다. travelMode는 walking, mode는 fastest/shade이며 생략하면 walking/fastest입니다. shade는 같은 스냅 지점의 실제 fastest 시간보다 30% 이내에서 햇빛 노출 시간을 최소화합니다. unknown field는 400으로 거부합니다. dataVersion은 데이터 스냅샷, timeModelVersion은 시간 비용 모델, routingModelVersion은 탐색·snapping 정책 버전입니다. 경로 ID는 응답 내 식별자이며 저장·상세 조회는 미지원입니다.
+현재 모델의 거리·시간은 스냅 지점 사이의 네트워크 경로를 기준으로 합니다. 접근 거리와 실제 끝점을 snapping으로 함께 제공합니다. 보행 1.4m/s·계단 0.9m/s의 정적 모델이며 신호 대기는 포함하지 않습니다. travelMode는 walking, mode는 fastest/shade/running이며 생략하면 walking/fastest입니다. shade는 같은 스냅 지점의 실제 fastest 시간보다 30% 이내에서 햇빛 노출 시간을 최소화합니다. unknown field는 400으로 거부합니다. dataVersion은 데이터 스냅샷, timeModelVersion은 시간 비용 모델, routingModelVersion은 탐색·snapping 정책 버전입니다. 경로 ID는 응답 내 식별자이며 저장·상세 조회는 미지원입니다.
+
+### 러닝길 비교
+
+`POST /api/v1/routes/search`에 `mode: "running"`을 보내면 `routes`에 `fastest`, `running` 순서로 두 경로를 반환합니다. 둘은 일반 OSM 보행 그래프의 같은 스냅 지점과 평가 시각을 사용합니다. 야간에도 검색할 수 있고 거리·시간과 안내는 기존 보행 모델을 사용합니다. 두 경로에 `metrics.stairsMeters`(실제로 통과한 계단 구간 거리)와 `metrics.mappedCrossingCount`(OSM에 표시된 횡단 횟수)를 함께 제공합니다. 연속된 같은 OSM 횡단 way는 한 번 세며 횡단 way에 붙은 노드 표시를 중복 집계하지 않습니다.
+
+빠른 길의 반올림 전 예상 보행 시간의 130% 안에서 계단 거리 1m당 1점과 횡단 1회당 30점의 합이 가장 작은 경로를 고릅니다. 점수가 같으면 예상 시간이 짧은 경로를 고르므로 두 결과가 같은 길일 수 있습니다. 노면·경사·신호 대기와 개인 달리기 속도는 이 버전의 계산 범위 밖입니다. OSM에 표시된 횡단만 집계하므로 값은 자료에 따라 달라집니다. 활성 그래프에 횡단 메타데이터가 없다면 현재 OSM reader로 다시 적재해야 합니다.
 
 Flutter 전달 예시에 더해 현재 응답은 baselineDurationSeconds, timeModelVersion, routingModelVersion, snapping, attribution을 제공합니다. 연동 시 Flutter DTO의 추가 필드 처리 정책을 확인하고, 실제 경로 끝점·접근 거리와 OSM 출처 표시를 반영합니다. shadeRatio/quietScore/lightingScore의 향후 0..1 비율·점수 규칙은 개수 필드인 trafficSignalCount에는 적용하지 않습니다.
 

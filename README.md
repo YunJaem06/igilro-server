@@ -128,6 +128,14 @@ curl -i http://localhost:8080/api/v1/routes/search \
 
 검증 스냅샷의 위 요청은 약 800.8m·예상 573초의 실제 그래프 경로를 반환했습니다. 입력 위치와 경로 끝점 사이의 차이는 `snapping`으로 제공합니다. 건물 자료와 출발 시각으로 전체 경로를 평가할 수 있을 때 shadeRatio를 계산하며 미평가 지표는 null입니다. 범위·시간 모델·후보 snapping·데이터 한계는 [Phase 2 실행/설계](docs/phase-2-routing.md), 측정 결과는 [검증 기록](docs/phase-2-verification.md), 건물 적재와 평가 상태는 [Phase 3 그늘 평가](docs/phase-3-shade.md)를 참고합니다.
 
+같은 API에 `mode: "running"`을 보내면 빠른 길과 러닝길을 함께 받습니다. 서울숲역 3번 출구에서 갤러리정원 주변 산책로까지 로컬 서울숲 자료로 비교한 결과 빠른 길은 1127.7m·806초·표시된 횡단 6회, 러닝길은 1284.7m·918초·표시된 횡단 2회였습니다. [러닝길 비교 계약](docs/api-contract.md#러닝길-비교)
+
+```bash
+curl -fsS http://localhost:8080/api/v1/routes/search \
+  -H 'Content-Type: application/json' \
+  -d '{"origin":{"longitude":127.0443258,"latitude":37.5429175},"destination":{"longitude":127.0402,"latitude":37.5417},"mode":"running"}'
+```
+
 ## 경로 검색 요청 제한
 
 일반·모델 경로 POST 검색은 하나의 프로세스별 한도를 공유합니다. 기본 초당 4건, 순간 요청 4건, 동시 계산 2건입니다. 요청 빈도 초과는 `429 TOO_MANY_REQUESTS`, 실행 슬롯 부족은 `503 ROUTE_SEARCH_BUSY`이며 모두 `Retry-After: 1`과 기존 공통 오류 JSON을 반환합니다. health·coverage·장소 검색은 이 경로 한도에 포함되지 않습니다.

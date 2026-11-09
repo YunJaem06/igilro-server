@@ -112,6 +112,35 @@ class RouteIntegrationTest {
     }
 
     @Test
+    fun `running compares two routes on the active OSM graph even at night`() {
+        val fastest = mapper.readTree(mvc.perform(request(query())).andExpect(status().isOk)
+            .andReturn().response.contentAsString)
+        val comparison = mapper.readTree(mvc.perform(request(query(extra =
+            ",\"mode\":\"running\",\"departureAt\":\"2026-10-10T00:00:00+09:00\"")))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.evaluatedAt").value("2026-10-09T15:00:00Z"))
+            .andExpect(jsonPath("$.routes.length()").value(2))
+            .andExpect(jsonPath("$.routes[0].mode").value("fastest"))
+            .andExpect(jsonPath("$.routes[1].mode").value("running"))
+            .andExpect(jsonPath("$.routes[1].guidance.status").value("AVAILABLE"))
+            .andReturn().response.contentAsString)
+        assertEquals(fastest["snapping"], comparison["snapping"])
+        assertEquals(fastest["routes"][0]["geometry"], comparison["routes"][0]["geometry"])
+        assertEquals(fastest["baselineDurationSeconds"], comparison["baselineDurationSeconds"])
+        val baseline = comparison["routes"][0]
+        val running = comparison["routes"][1]
+        for (route in listOf(baseline, running)) {
+            assertTrue(route["metrics"]["stairsMeters"].isNumber)
+            assertTrue(route["metrics"]["mappedCrossingCount"].isIntegralNumber)
+            val path = route["geometry"]["coordinates"]
+            assertEquals(baseline["geometry"]["coordinates"][0], path[0])
+            assertEquals(baseline["geometry"]["coordinates"].last(), path.last())
+        }
+        assertEquals(running["durationSeconds"].asLong() - baseline["durationSeconds"].asLong(),
+            running["additionalDurationSeconds"].asLong())
+    }
+
+    @Test
     fun `malformed requests fail validation before graph search`() {
         listOf(query(origin = "127.03,91"), query(extra = ",\"departureAt\":\"2026-10-10T14:00:00\""), "{}", "{bad-json", query(origin = "\"NaN\",37.54"), query(extra = ",\"conditions\":{\"shade\":1}")).forEach { body ->
             mvc.perform(request(body)).andExpect(status().isBadRequest)

@@ -11,3 +11,13 @@ data class EdgeGuidanceMetadata(val osmWayId: Long, val streetName: String? = nu
 }
 
 object GuidanceMetadataVersion { const val OSM_V1 = "osm-guidance-tags-v1" }
+
+internal fun WalkingGraph.crossingAt(
+    junction: Long?,
+    before: EdgeGuidanceMetadata?,
+    after: EdgeGuidanceMetadata?,
+): CrossingMetadata? = when {
+    after?.crossing != null && (before?.crossing == null || before.osmWayId != after.osmWayId) -> after.crossing
+    before?.crossing != null || after?.crossing != null -> null
+    else -> junction?.let { nodeGuidance[it]?.crossing }
+}

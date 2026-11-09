@@ -39,6 +39,7 @@ class RouteExceptionHandler(clock: Clock) {
         RouteFailureReason.NOT_FOUND -> responder.respond(HttpStatus.NOT_FOUND, "ROUTE_NOT_FOUND", "연결 가능한 보행 경로를 찾을 수 없습니다.", request)
         RouteFailureReason.DATA_UNAVAILABLE -> responder.respond(HttpStatus.SERVICE_UNAVAILABLE, "ROUTING_DATA_UNAVAILABLE", "보행 경로 데이터를 사용할 수 없습니다.", request)
         RouteFailureReason.PREDICTION_DATA_UNAVAILABLE -> responder.respond(HttpStatus.SERVICE_UNAVAILABLE, "PREDICTION_DATA_UNAVAILABLE", "모델 기반 예측 자료를 사용할 수 없습니다.", request)
+        RouteFailureReason.RUNNING_DATA_UNAVAILABLE -> responder.respond(HttpStatus.SERVICE_UNAVAILABLE, "RUNNING_DATA_UNAVAILABLE", "러닝길 비교에 필요한 보행로 횡단 자료를 사용할 수 없습니다.", request)
         RouteFailureReason.SHADE_DATA_UNAVAILABLE -> responder.respond(HttpStatus.SERVICE_UNAVAILABLE, "SHADE_DATA_UNAVAILABLE", "그늘 경로를 비교할 건물 자료가 충분하지 않습니다.", request)
         RouteFailureReason.SHADE_TIME_UNSUPPORTED -> responder.respond(HttpStatus.UNPROCESSABLE_CONTENT, "SHADE_TIME_UNSUPPORTED", "해당 시각에는 그늘 경로를 비교할 수 없습니다.", request)
         RouteFailureReason.SEARCH_LIMIT_EXCEEDED -> responder.respond(HttpStatus.SERVICE_UNAVAILABLE, "ROUTE_SEARCH_LIMIT_EXCEEDED", "검색 범위를 줄여 다시 시도해 주세요.", request)

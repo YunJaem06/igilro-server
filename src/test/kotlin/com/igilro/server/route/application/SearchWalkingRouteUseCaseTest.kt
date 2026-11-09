@@ -35,6 +35,13 @@ class SearchWalkingRouteUseCaseTest {
     }
 
     @Test
+    fun `running reports unavailable for legacy graphs without crossing metadata`() {
+        val failure = assertFailsWith<RouteFailure> { useCase(listOf(graph)).execute(RouteQuery(a, b, mode = "running")) }
+        assertEquals(RouteFailureReason.RUNNING_DATA_UNAVAILABLE, failure.reason)
+        assertEquals("fastest", useCase(listOf(graph)).execute(RouteQuery(a, b)).mode)
+    }
+
+    @Test
     fun `outside support area returns its own failure`() {
         assertEquals(RouteFailureReason.OUTSIDE_SUPPORTED_AREA, assertFailsWith<RouteFailure> { useCase(listOf(graph)).execute(RouteQuery(a, Coordinate(127.051, 37.54))) }.reason)
     }
