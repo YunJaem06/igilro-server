@@ -20,7 +20,7 @@ class SearchModelPredictionUseCase(
     private val admission: RouteSearchAdmission,
 ) {
     fun execute(query: RouteQuery): ModelPredictionResult {
-        if(query.travelMode!="walking" || query.mode !in setOf("fastest","shade") || query.origin==query.destination)
+        if(query.travelMode!="walking" || query.mode !in setOf("fastest","shade","sunlight") || query.origin==query.destination)
             throw RouteFailure(RouteFailureReason.INVALID_QUERY)
         return admission.execute { search(query) }
     }
@@ -36,10 +36,15 @@ class SearchModelPredictionUseCase(
         val sun=SolarPositionCalculator().calculate(center,at)
         if(sun==null || sun.altitudeDegrees<5) throw RouteFailure(RouteFailureReason.SHADE_TIME_UNSUPPORTED)
         val optimizer=ShadeRouteOptimizer()
-        val network=if(query.mode=="shade") optimizer.prepare(graph,baseline) else null
+        val network=if(query.mode!="fastest") optimizer.prepare(graph,baseline) else null
         val measurements=source.measure(info,listOf(baseline.coordinates)+(network?.paths ?: emptyList()),center,sun)
         val result=if(network==null) RouteSearchResult(baseline,graph.dataVersion,at,measurements.first().evaluation)
-        else optimizer.find(network,measurements).let { RouteSearchResult(it.route,graph.dataVersion,at,it.shade,"shade",baseline.durationSeconds) }
+        else {
+            val minimize = if (query.mode == "sunlight") ShadeRouteOptimizer.Exposure.SHADE
+                else ShadeRouteOptimizer.Exposure.SUNLIGHT
+            val optimized = optimizer.find(network, measurements, minimize)
+            RouteSearchResult(optimized.route, graph.dataVersion, at, optimized.shade, query.mode, baseline.durationSeconds)
+        }
         val trace=source.trace(info,result.route.coordinates,center,sun)
         return ModelPredictionResult(result.copy(shade=trace.measurement.evaluation,guidance=RouteGuidanceGenerator().generate(graph,result.route)),info,
             if(network==null) trace.measurement.evaluation.ratio!! else measurements.first().evaluation.ratio!!,trace.sections)

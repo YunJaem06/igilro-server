@@ -3,8 +3,10 @@ package com.igilro.server.route.domain
 import com.igilro.server.route.domain.shade.*
 import java.util.PriorityQueue
 
-/** Exact Pareto-label search: minimum sun exposure time subject to a walking time budget. */
+/** Exact Pareto-label search: minimum time in the selected exposure subject to a walking time budget. */
 class ShadeRouteOptimizer(private val maximumLabels: Int = 100_000) {
+    enum class Exposure { SUNLIGHT, SHADE }
+
     data class Section(val edgeId: Long, val from: Double, val to: Double)
     data class Arc(val from: Long, val to: Long, val meters: Double, val seconds: Double, val section: Section?, val traversal: RouteTraversal? = null)
     class Network internal constructor(
@@ -75,7 +77,11 @@ class ShadeRouteOptimizer(private val maximumLabels: Int = 100_000) {
         })
     }
 
-    fun find(network: Network, measurements: List<ShadePathMeasurement>): Result {
+    fun find(
+        network: Network,
+        measurements: List<ShadePathMeasurement>,
+        minimize: Exposure = Exposure.SUNLIGHT,
+    ): Result {
         val deadline = System.nanoTime() + 2_000_000_000L
         if (measurements.size != network.sections.size + 1) unavailable()
         val baselineShade = measurements.first().evaluation
@@ -101,9 +107,14 @@ class ShadeRouteOptimizer(private val maximumLabels: Int = 100_000) {
             for (arc in adjacency[current.node].orEmpty()) {
                 val seconds = current.seconds + arc.seconds
                 if (seconds + (network.remainingSeconds[arc.to] ?: Double.POSITIVE_INFINITY) > budget + EPSILON) continue
-                val exposed = current.exposed + arc.seconds * (1.0 - (arc.section?.let { costs.getValue(it).evaluation.ratio!! } ?: 1.0))
+                val shadeRatio = arc.section?.let { costs.getValue(it).evaluation.ratio!! } ?: 0.0
+                val exposureRatio = when (minimize) {
+                    Exposure.SUNLIGHT -> 1.0 - shadeRatio
+                    Exposure.SHADE -> shadeRatio
+                }
+                val exposed = current.exposed + arc.seconds * exposureRatio
                 val existing = labels.getOrPut(arc.to) { mutableListOf() }
-                // Both resources matter: a slightly sunnier but faster prefix may be needed later.
+                // A faster prefix with more exposure may still produce the best feasible route.
                 if (existing.any { it.seconds <= seconds && it.exposed <= exposed }) continue
                 existing.removeAll {
                     if (seconds <= it.seconds && exposed <= it.exposed) { it.active = false; true } else false
@@ -169,6 +180,7 @@ class ShadeRouteOptimizer(private val maximumLabels: Int = 100_000) {
 
     companion object {
         const val VERSION = "shade-v1-min-sun-seconds-detour30-pareto100k-sections12k"
+        const val SUNLIGHT_VERSION = "sunlight-v1-min-shade-seconds-detour30-pareto100k-sections12k"
         const val MAXIMUM_DURATION_FACTOR = 1.3
         const val MAXIMUM_SECTIONS = 12_000
         private const val START = -1L

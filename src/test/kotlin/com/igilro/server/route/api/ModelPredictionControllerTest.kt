@@ -61,7 +61,7 @@ class ModelPredictionControllerTest {
             .andExpect(jsonPath("$.requestId").isString).andExpect(header().exists("X-Request-Id"))
     }
     @Test fun `invalid requests and unsupported solar times preserve distinct failures`() {
-        mvc().perform(request(",\"mode\":\"sunlight\"")).andExpect(status().isBadRequest)
+        mvc().perform(request(",\"mode\":\"running\"")).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value("INVALID_ROUTE_QUERY"))
         mvc().perform(request(",\"departureAt\":\"2026-10-28T00:00:00+09:00\"")).andExpect(status().`is`(422))
             .andExpect(jsonPath("$.code").value("SHADE_TIME_UNSUPPORTED"))
@@ -72,6 +72,18 @@ class ModelPredictionControllerTest {
             .andExpect(jsonPath("$.routes[0].additionalDurationSeconds").value(0))
             .andExpect(jsonPath("$.baselineDurationSeconds").value(15))
             .andExpect(jsonPath("$.routes[0].guidance.status").value("AVAILABLE"))
+    }
+    @Test fun `sunlight prediction returns its own mode and model version with guidance and segments`() {
+        mvc().perform(request(",\"mode\":\"sunlight\"")).andExpect(status().isOk)
+            .andExpect(jsonPath("$.routes[0].mode").value("sunlight"))
+            .andExpect(jsonPath("$.routingModelVersion").value("model-prediction-v2-snap50-" + ShadeRouteOptimizer.SUNLIGHT_VERSION))
+            .andExpect(jsonPath("$.baselineDurationSeconds").value(15))
+            .andExpect(jsonPath("$.routes[0].prediction.baselineModeledShadeRatio").value(.5))
+            .andExpect(jsonPath("$.routes[0].shadeSegments[1].state").value("SUNLIGHT"))
+            .andExpect(jsonPath("$.routes[0].guidance.status").value("AVAILABLE"))
+        mvc().perform(request(",\"mode\":\"sunlight\",\"departureAt\":\"2026-10-28T00:00:00+09:00\""))
+            .andExpect(status().`is`(422))
+            .andExpect(jsonPath("$.code").value("SHADE_TIME_UNSUPPORTED"))
     }
     @Test fun `coverage supplies the loaded bounds and actual walking edges without hardcoded client region`() {
         mvc().perform(get("/api/v1/routes/predictions/coverage")).andExpect(status().isOk)

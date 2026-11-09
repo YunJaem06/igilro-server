@@ -37,6 +37,27 @@ class ShadeRouteOptimizerTest {
     }
 
     @Test
+    fun `sunlight selects a sunnier legal detour within the time budget`() {
+        for (detour in listOf(260.0, 260.01)) {
+            val g = graph(detour)
+            val baseline = DijkstraRoutePlanner().find(g, a, b, 50.0)
+            val network = optimizer.prepare(g, baseline)
+            val result = optimizer.find(
+                network,
+                measurements(network) { if (it.edgeId == 1L) 1.0 else 0.0 },
+                ShadeRouteOptimizer.Exposure.SHADE,
+            )
+            assertEquals(if (detour == 260.0) listOf(a, c, b) else listOf(a, b), result.route.coordinates)
+            assertEquals(if (detour == 260.0) 0.0 else 1.0, result.shade.ratio)
+            assertEquals(baseline.origin, result.route.origin)
+            assertEquals(baseline.destination, result.route.destination)
+
+            val equal = optimizer.find(network, measurements(network) { 0.0 }, ShadeRouteOptimizer.Exposure.SHADE)
+            assertEquals(baseline.coordinates, equal.route.coordinates)
+        }
+    }
+
+    @Test
     fun `exact thirty percent detour is allowed but a longer one is excluded`() {
         for (detour in listOf(260.0, 260.01)) {
             val g = graph(detour)

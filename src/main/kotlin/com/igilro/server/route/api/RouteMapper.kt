@@ -34,7 +34,11 @@ object RouteMapper {
             evaluatedAt = result.evaluatedAt,
             dataVersion = result.dataVersion,
             timeModelVersion = WalkingTimeModel.VERSION,
-            routingModelVersion = if (result.mode == "shade") ShadeRouteOptimizer.VERSION else DijkstraRoutePlanner.VERSION,
+            routingModelVersion = when (result.mode) {
+                "shade" -> ShadeRouteOptimizer.VERSION
+                "sunlight" -> ShadeRouteOptimizer.SUNLIGHT_VERSION
+                else -> DijkstraRoutePlanner.VERSION
+            },
             baselineDurationSeconds = baselineSeconds,
             snapping = SnappingResponse(snap(route.origin), snap(route.destination)),
         )

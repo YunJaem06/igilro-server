@@ -117,7 +117,7 @@ class RouteSearchAdmissionApiTest {
             .andExpect(status().isBadRequest).andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
         mvc.perform(request(mode = "sunlight")).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value("INVALID_ROUTE_QUERY"))
-        mvc.perform(request(model = true, mode = "sunlight")).andExpect(status().isBadRequest)
+        mvc.perform(request(model = true, mode = "running")).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value("INVALID_ROUTE_QUERY"))
         mvc.perform(request()).andExpect(status().isOk)
     }

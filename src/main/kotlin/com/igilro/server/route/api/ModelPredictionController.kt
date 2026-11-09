@@ -44,7 +44,7 @@ data class ModelRoutePredictionResponse(val routes: List<PredictedRouteResponse>
 class ModelPredictionController(private val search: SearchModelPredictionUseCase) {
     @PostMapping("/search",consumes=[MediaType.APPLICATION_JSON_VALUE],produces=[MediaType.APPLICATION_JSON_VALUE])
     @Operation(summary="3D 모델 기반 도보 경로 예측",operationId="searchModelRoutePrediction",
-        description="coverage가 반환하는 보행망에서 모델 높이·DEM·고정 태양을 사용합니다. shadeSegments는 경로 순서대로 이어지는 SHADE/SUNLIGHT LineString입니다. modeledShadeRatio는 실제 관측 커버리지가 아닌 모델 예측입니다. shade는 같은 스냅에서 최단 시간 대비 30% 이내로 모델 햇빛 노출 시간을 최소화합니다.")
+        description="coverage가 반환하는 보행망에서 모델 높이·DEM·고정 태양을 사용합니다. shadeSegments는 경로 순서대로 이어지는 SHADE/SUNLIGHT LineString입니다. modeledShadeRatio는 실제 관측 커버리지가 아닌 모델 예측입니다. 같은 스냅에서 최단 시간 대비 30% 이내로 shade는 햇빛 노출 시간, sunlight는 그늘 통과 시간을 최소화합니다.")
     @ApiResponse(responseCode = "200", description = "모델 기반 경로 예측")
     @ApiResponse(responseCode = "400", description = "INVALID_REQUEST / INVALID_ROUTE_QUERY", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
     @ApiResponse(responseCode = "404", description = "ROUTE_NOT_FOUND", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))])
